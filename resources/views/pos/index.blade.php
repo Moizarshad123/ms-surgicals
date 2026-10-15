@@ -470,6 +470,17 @@
         align-items: center;
         margin-top: 12px;
     }
+    .btn-sale-type {
+        border: none;
+        background: transparent;
+        color: #64748b;
+        transition: all 0.2s ease;
+    }
+    .btn-sale-type.active {
+        background: #ffffff !important;
+        color: #ff6e40 !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
 </style>
 @endpush
 
@@ -669,7 +680,7 @@
                 </div>
 
                 <!-- Checkout Button -->
-                <button type="button" class="btn btn-checkout-pos w-100" id="btnOpenCheckoutModal" data-bs-toggle="modal" data-bs-target="#checkoutModal" disabled>
+                <button type="button" class="btn btn-checkout-pos w-100" id="btnOpenCheckoutModal" disabled>
                     <i class="bi bi-check2-circle fs-5"></i>
                     <span id="checkoutBtnText">Confirm &amp; Generate Bill</span>
                 </button>
@@ -686,10 +697,20 @@
                 <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="checkoutModalLabel">
                     <i class="bi bi-receipt text-primary"></i> Complete Sale &amp; Bill
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" id="btnCloseModalX" aria-label="Close"></button>
             </div>
 
             <div class="modal-body p-4">
+                <!-- Sale Mode Toggle: Cash vs Credit (Installments) -->
+                <div class="d-flex p-1 bg-light rounded-3 mb-3 border">
+                    <button type="button" class="btn btn-sm flex-fill fw-semibold py-2 rounded-2 btn-sale-type active" id="btnTypeCash" onclick="setSaleType('cash')">
+                        <i class="bi bi-cash me-1"></i> Full Cash Payment
+                    </button>
+                    <button type="button" class="btn btn-sm flex-fill fw-semibold py-2 rounded-2 btn-sale-type text-muted" id="btnTypeCredit" onclick="setSaleType('credit')">
+                        <i class="bi bi-wallet2 me-1"></i> Credit / Installments (Udhaar)
+                    </button>
+                </div>
+
                 <!-- Highlight Total Payable -->
                 <div class="modal-payable-box">
                     <div class="modal-payable-label">Total Amount Payable</div>
@@ -699,36 +720,75 @@
                 <!-- Customer Details -->
                 <div class="row g-2 mb-3">
                     <div class="col-sm-6">
-                        <label class="form-label small fw-semibold text-dark">Customer Name</label>
-                        <input type="text" id="modalCustomerName" class="form-control" placeholder="Walk-in Customer">
+                        <label class="form-label small fw-semibold text-dark">
+                            Customer Name <span id="reqCustName" class="text-danger d-none">*</span>
+                        </label>
+                        <input type="text" id="modalCustomerName" list="customersDatalist" class="form-control" placeholder="Walk-in Customer" oninput="onCustomerInput()" autocomplete="off">
+                        <datalist id="customersDatalist">
+                            @foreach($customers as $c)
+                                <option value="{{ $c->name }}" data-phone="{{ $c->phone }}" data-id="{{ $c->id }}">
+                            @endforeach
+                        </datalist>
                     </div>
                     <div class="col-sm-6">
-                        <label class="form-label small fw-semibold text-dark">Phone Number</label>
+                        <label class="form-label small fw-semibold text-dark">
+                            Phone Number <span id="reqCustPhone" class="text-danger d-none">*</span>
+                        </label>
                         <input type="text" id="modalCustomerPhone" class="form-control" placeholder="03xx-xxxxxxx">
+                    </div>
+                    <div id="customerExistingAlert" class="col-12 d-none">
+                        <div class="alert alert-info py-1 px-2 small mb-0 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-person-check me-1"></i> Existing Customer Matched</span>
+                            <span id="custPrevDueBadge" class="fw-bold"></span>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Amount Received & Quick Cash -->
                 <div class="mb-3">
                     <label class="form-label small fw-semibold text-dark d-flex justify-content-between">
-                        <span>Amount Paid by Customer (Rs.)</span>
-                        <span class="text-muted small">Auto-calculated</span>
+                        <span id="paidAmountLabel">Amount Paid by Customer (Rs.)</span>
+                        <span class="text-muted small" id="paidAmountHelp">Auto-calculated</span>
                     </label>
                     <input type="number" id="paidAmountInput" class="form-control form-control-lg text-end fw-bold" min="0" oninput="calculateChange()">
                     
                     <!-- Quick Cash Buttons -->
-                    <div class="quick-cash-grid">
-                        <button type="button" class="btn-quick-cash" onclick="setQuickCash('exact')">Exact</button>
+                    <div class="quick-cash-grid" id="quickCashContainer">
+                        <button type="button" class="btn-quick-cash" onclick="setQuickCash('exact')">Exact Bill</button>
                         <button type="button" class="btn-quick-cash" onclick="setQuickCash(500)">Rs. 500</button>
                         <button type="button" class="btn-quick-cash" onclick="setQuickCash(1000)">Rs. 1,000</button>
                         <button type="button" class="btn-quick-cash" onclick="setQuickCash(5000)">Rs. 5,000</button>
                     </div>
                 </div>
 
-                <!-- Change Due / Balance -->
+                <!-- Change Due / Remaining Balance Box -->
                 <div class="change-due-box" id="changeDueBox">
                     <span class="small fw-semibold" id="changeDueLabel">Change Return:</span>
                     <span class="fw-bold fs-6 text-success" id="changeDueAmount">Rs. 0.0</span>
+                </div>
+
+                <!-- Credit / Installment Details (Visible when Credit selected) -->
+                <div id="creditFieldsSection" class="mt-3 p-3 rounded-3 d-none" style="background:#fffaf8; border:1px dashed #ffb899;">
+                    <div class="row g-2 mb-2">
+                        <div class="col-sm-7">
+                            <label class="form-label small fw-semibold text-dark">
+                                <i class="bi bi-calendar-event me-1 text-primary"></i> Installment Deadline <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" id="modalDueDate" class="form-control form-control-sm" value="{{ now()->addDays(30)->toDateString() }}">
+                        </div>
+                        <div class="col-sm-5">
+                            <label class="form-label small fw-semibold text-dark">Quick Period</label>
+                            <div class="btn-group btn-group-sm w-100">
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDueDays(15)">15d</button>
+                                <button type="button" class="btn btn-outline-secondary active" onclick="setDueDays(30)">1 Month</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setDueDays(60)">2 Months</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label small fw-semibold text-dark">Agreement / Installment Note (Optional)</label>
+                        <input type="text" id="modalSaleNotes" class="form-control form-control-sm" placeholder="e.g. Remaining balance to be paid within 1 month">
+                    </div>
                 </div>
 
                 <!-- Error Message Box -->
@@ -736,11 +796,11 @@
             </div>
 
             <div class="modal-footer border-top py-3 px-4" style="background:#fafbfc; border-radius: 0 0 14px 14px;">
-                <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary px-3" id="btnCancelModal">Cancel</button>
                 <button type="button" class="btn btn-success px-4 fw-semibold" id="btnSubmitSale" onclick="submitSale()">
                     <span id="submitSpinner" class="spinner-border spinner-border-sm d-none me-1"></span>
                     <i class="bi bi-printer me-1" id="submitIcon"></i>
-                    Generate Bill
+                    <span id="submitSaleBtnText">Generate Bill</span>
                 </button>
             </div>
         </div>
@@ -750,6 +810,11 @@
 
 @push('scripts')
 <script>
+
+    function getCheckoutModal() {
+        const el = document.getElementById('checkoutModal');
+        return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+    }
     /* =========================================================
        POS WORKSTATION JAVASCRIPT
        ========================================================= */
@@ -1001,7 +1066,6 @@
     // -------------------------------------------------------------
     function renderCart() {
         const cartList = document.getElementById('cartItemsList');
-        const emptyView = document.getElementById('emptyCartView');
         const checkoutBtn = document.getElementById('btnOpenCheckoutModal');
         const countBadge = document.getElementById('cartCountBadge');
 
@@ -1009,8 +1073,13 @@
         countBadge.innerText = totalItemsCount;
 
         if (cart.length === 0) {
-            cartList.innerHTML = '';
-            cartList.appendChild(emptyView);
+            cartList.innerHTML = `
+                <div id="emptyCartView" class="empty-cart-view">
+                    <i class="bi bi-cart-x empty-cart-icon"></i>
+                    <h6 class="fw-semibold text-secondary mb-1">Cart is empty</h6>
+                    <p class="small text-muted mb-0">Click any product from the catalog on the left to add it to this order.</p>
+                </div>
+            `;
             checkoutBtn.disabled = true;
             document.getElementById('checkoutBtnText').innerText = 'Confirm & Generate Bill';
         } else {
@@ -1085,20 +1154,107 @@
         document.getElementById('modalCustomerPhone').value = val;
     });
 
-    // -------------------------------------------------------------
-    // Checkout Modal Logic
-    // -------------------------------------------------------------
-    document.getElementById('checkoutModal').addEventListener('show.bs.modal', function () {
+    let currentSaleType = 'cash';
+    let matchedCustomerId = null;
+    const existingCustomers = @json($customers);
+
+    function setSaleType(type) {
+        currentSaleType = type;
         const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
         const discount = parseFloat(document.getElementById('discountInput').value) || 0;
         const total = Math.max(subTotal - discount, 0);
 
-        // Pre-fill modal fields
+        const btnCash = document.getElementById('btnTypeCash');
+        const btnCredit = document.getElementById('btnTypeCredit');
+        const paidLabel = document.getElementById('paidAmountLabel');
+        const paidHelp = document.getElementById('paidAmountHelp');
+        const paidInput = document.getElementById('paidAmountInput');
+        const quickCash = document.getElementById('quickCashContainer');
+        const creditSection = document.getElementById('creditFieldsSection');
+        const reqName = document.getElementById('reqCustName');
+        const reqPhone = document.getElementById('reqCustPhone');
+        const btnSubmitText = document.getElementById('submitSaleBtnText');
+
+        if (type === 'cash') {
+            btnCash.classList.add('active');
+            btnCash.classList.remove('text-muted');
+            btnCredit.classList.remove('active');
+            btnCredit.classList.add('text-muted');
+
+            paidLabel.innerText = 'Amount Paid by Customer (Rs.)';
+            paidHelp.innerText = 'Exact bill';
+            paidInput.value = total;
+            quickCash.classList.remove('d-none');
+            creditSection.classList.add('d-none');
+            reqName.classList.add('d-none');
+            reqPhone.classList.add('d-none');
+            btnSubmitText.innerText = 'Generate Bill';
+        } else {
+            btnCredit.classList.add('active');
+            btnCredit.classList.remove('text-muted');
+            btnCash.classList.remove('active');
+            btnCash.classList.add('text-muted');
+
+            paidLabel.innerText = 'Advance / Down Payment (Rs.)';
+            paidHelp.innerText = 'e.g. Rs. 25,000 or Rs. 0';
+            // Default advance: if user already entered an amount keep it, else default to 0 for credit
+            if (parseFloat(paidInput.value) >= total) {
+                paidInput.value = '';
+            }
+            quickCash.classList.add('d-none');
+            creditSection.classList.remove('d-none');
+            reqName.classList.remove('d-none');
+            reqPhone.classList.remove('d-none');
+            btnSubmitText.innerText = 'Confirm Credit Sale & Bill';
+        }
+        calculateChange();
+    }
+
+    function setDueDays(days) {
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + days);
+        const yyyy = targetDate.getFullYear();
+        const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(targetDate.getDate()).padStart(2, '0');
+        document.getElementById('modalDueDate').value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    function onCustomerInput() {
+        const inputName = document.getElementById('modalCustomerName').value.trim();
+        const alertBox = document.getElementById('customerExistingAlert');
+        const phoneInput = document.getElementById('modalCustomerPhone');
+
+        const matched = existingCustomers.find(c => c.name.toLowerCase() === inputName.toLowerCase());
+        if (matched) {
+            matchedCustomerId = matched.id;
+            if (matched.phone) {
+                phoneInput.value = matched.phone;
+            }
+            alertBox.classList.remove('d-none');
+        } else {
+            matchedCustomerId = null;
+            alertBox.classList.add('d-none');
+        }
+    }
+
+    function prepareCheckoutModal() {
+        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+        const total = Math.max(subTotal - discount, 0);
+
         document.getElementById('modalCustomerName').value = cartCustomerName.value || 'Walk-in Customer';
         document.getElementById('modalCustomerPhone').value = cartCustomerPhone.value || '';
-        document.getElementById('paidAmountInput').value = total;
         document.getElementById('modalPayableTotal').innerText = 'Rs. ' + total.toLocaleString();
-        calculateChange();
+        document.getElementById('checkoutError').innerText = '';
+
+        onCustomerInput();
+        setSaleType('cash'); // default to cash
+    }
+
+    document.getElementById('btnOpenCheckoutModal').addEventListener('click', function () {
+        if (cart.length === 0) return;
+        prepareCheckoutModal();
+        getCheckoutModal().show();
     });
 
     function setQuickCash(amount) {
@@ -1123,6 +1279,7 @@
         const changeAmountEl = document.getElementById('changeDueAmount');
         const changeLabelEl = document.getElementById('changeDueLabel');
         const changeBox = document.getElementById('changeDueBox');
+        const creditSection = document.getElementById('creditFieldsSection');
 
         if (paid >= total) {
             const change = paid - total;
@@ -1132,14 +1289,23 @@
             changeAmountEl.className = 'fw-bold fs-6 text-success';
             changeBox.style.background = '#f4fbf7';
             changeBox.style.borderColor = '#c7ecd9';
+
+            if (currentSaleType === 'cash') {
+                creditSection.classList.add('d-none');
+            }
         } else {
             const balance = total - paid;
-            changeLabelEl.innerText = 'Remaining Balance:';
+            changeLabelEl.innerText = currentSaleType === 'credit' ? 'Remaining Balance (Udhaar):' : 'Remaining Balance:';
             changeLabelEl.className = 'small fw-semibold text-danger';
             changeAmountEl.innerText = 'Rs. ' + balance.toLocaleString();
             changeAmountEl.className = 'fw-bold fs-6 text-danger';
             changeBox.style.background = '#fdf4f4';
             changeBox.style.borderColor = '#f5c6cb';
+
+            // If user enters less than total, automatically show credit details
+            creditSection.classList.remove('d-none');
+            document.getElementById('reqCustName').classList.remove('d-none');
+            document.getElementById('reqCustPhone').classList.remove('d-none');
         }
     }
 
@@ -1155,16 +1321,46 @@
             return;
         }
 
-        const customerName = document.getElementById('modalCustomerName').value.trim() || 'Walk-in Customer';
-        const customerPhone = document.getElementById('modalCustomerPhone').value.trim();
+        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
         const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+        const total = Math.max(subTotal - discount, 0);
         const paidAmount = parseFloat(document.getElementById('paidAmountInput').value) || 0;
 
+        const customerName = document.getElementById('modalCustomerName').value.trim();
+        const customerPhone = document.getElementById('modalCustomerPhone').value.trim();
+        const dueDate = document.getElementById('modalDueDate').value;
+        const notes = document.getElementById('modalSaleNotes').value.trim();
+
+        const isCreditSale = (currentSaleType === 'credit') || (paidAmount < total);
+
+        // Validation for Credit / Installment Sales
+        if (isCreditSale) {
+            if (!customerName || customerName.toLowerCase() === 'walk-in customer') {
+                errorBox.innerText = 'Customer Name is required for credit/installment sales to track who owes the balance.';
+                document.getElementById('modalCustomerName').focus();
+                return;
+            }
+            if (!customerPhone) {
+                errorBox.innerText = 'Customer Phone Number is required for credit sales so you can contact them for installments.';
+                document.getElementById('modalCustomerPhone').focus();
+                return;
+            }
+            if (!dueDate) {
+                errorBox.innerText = 'Please select an installment deadline / due date.';
+                document.getElementById('modalDueDate').focus();
+                return;
+            }
+        }
+
         const payload = {
-            customer_name: customerName,
-            customer_phone: customerPhone,
+            customer_id: matchedCustomerId,
+            customer_name: customerName || 'Walk-in Customer',
+            customer_phone: customerPhone || null,
             discount: discount,
             paid_amount: paidAmount,
+            due_date: isCreditSale ? dueDate : null,
+            notes: notes || null,
+            payment_method: 'cash',
             items: cart.map(i => ({ product_id: i.id, quantity: i.quantity })),
         };
 
@@ -1204,14 +1400,17 @@
             renderCart();
 
             // Hide modal
-            const modalEl = document.getElementById('checkoutModal');
-            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            const modalInstance = getCheckoutModal();
             if (modalInstance) {
                 modalInstance.hide();
             }
 
             if (typeof toastr !== 'undefined') {
-                toastr.success('Sale completed successfully! Receipt generated.');
+                if (data.is_credit) {
+                    toastr.success(`Credit Sale created! Advance: Rs. ${paidAmount.toLocaleString()} | Remaining Due: Rs. ${data.due_amount.toLocaleString()}`, 'Credit Sale Recorded', { timeOut: 4000 });
+                } else {
+                    toastr.success('Sale completed successfully! Bill generated.', 'Success', { timeOut: 2000 });
+                }
             }
         })
         .catch(err => {
@@ -1224,7 +1423,7 @@
             btnSubmit.disabled = false;
             spinner.classList.add('d-none');
             icon.classList.remove('d-none');
-        });
+        })
     }
 
     // -------------------------------------------------------------
@@ -1239,6 +1438,12 @@
             e.preventDefault();
             document.getElementById('btnClearCart').click();
         }
+    });
+
+    ['btnCloseModalX', 'btnCancelModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', () => {
+            getCheckoutModal().hide();
+        });
     });
 
     // Initial render

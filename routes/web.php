@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CreditSaleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\PosController;
@@ -20,7 +21,7 @@ Route::middleware('guest')->group(function () {
 
 // Authenticated routes
 Route::middleware('auth')->group(function () {
-    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+    Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('logout');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -28,6 +29,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
     Route::post('/pos', [PosController::class, 'store'])->name('pos.store');
     Route::get('/pos/invoice/{sale}', [PosController::class, 'invoice'])->name('pos.invoice');
+    Route::get('/pos/customers/search', [PosController::class, 'searchCustomers'])->name('pos.customers.search');
+
+    // Credit Sales & Installments
+    Route::get('/credit-sales', [CreditSaleController::class, 'index'])->name('credit-sales.index');
+    Route::get('/credit-sales/{sale}', [CreditSaleController::class, 'show'])->name('credit-sales.show');
+    Route::post('/credit-sales/{sale}/payments', [CreditSaleController::class, 'storePayment'])->name('credit-sales.payments.store');
+    Route::delete('/credit-sales/payments/{payment}', [CreditSaleController::class, 'destroyPayment'])->name('credit-sales.payments.destroy');
+    Route::get('/credit-sales/{sale}/receipt', [CreditSaleController::class, 'printReceipt'])->name('credit-sales.receipt');
 
     // Products
     Route::resource('products', ProductController::class)->except(['show']);

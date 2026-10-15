@@ -10,18 +10,17 @@
         </a>
     </div>
     <div class="menu-body">
-        <div class="dropdown">
-            <a href="{{ route('dashboard') }}" class="d-flex align-items-center" data-bs-toggle="dropdown">
-                <div class="avatar me-3">
-                    <img src="{{ asset('admin/images/man_avatar3.jpg')}}"
-                         class="rounded-circle" alt="image">
-                </div>
-                <div>
-                    <div class="fw-bold">MS Surgicals</div>
-                </div>
-            </a>
-            
-        </div>
+            <div class="dropdown">
+                <a href="{{ route('dashboard') }}" class="d-flex align-items-center">
+                    <div class="avatar me-3">
+                        <img src="{{ asset('admin/images/man_avatar3.jpg')}}"
+                            class="rounded-circle" alt="image">
+                    </div>
+                    <div>
+                        <div class="fw-bold">MS Surgicals</div>
+                    </div>
+                </a>
+            </div>
         <ul>
 
             <li>
@@ -39,6 +38,15 @@
                         <i class="bi bi-cart"></i>
                     </span>
                     <span>POS</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{{ request()->is('credit-sales*') ? 'active' : '' }}" href="{{ route('credit-sales.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-wallet2"></i>
+                    </span>
+                    <span>Credit Sales / Installments</span>
                 </a>
             </li>
 
@@ -100,12 +108,17 @@
             </li>
           
             <li>
-                <a  href="{{route('logout') }}">
+                <a href="{{ route('logout') }}"
+                onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                     <span class="nav-link-icon">
                         <i class="bi bi-person-badge"></i>
                     </span>
                     <span>Logout</span>
                 </a>
+
+                <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+                    @csrf
+                </form>
             </li>
         </ul>
     </div>

@@ -286,18 +286,20 @@
             <table class="table align-middle mb-0" id="salesTable">
                 <thead>
                     <tr>
-                        <th style="width: 140px;">Invoice #</th>
+                        <th style="width: 130px;">Invoice #</th>
                         <th>Customer</th>
                         <th>Phone</th>
-                        <th class="text-end">Subtotal</th>
-                        <th class="text-end">Discount</th>
                         <th class="text-end">Net Total</th>
+                        <th class="text-end">Paid Amount</th>
+                        <th class="text-end">Balance Due</th>
+                        <th class="text-center">Status</th>
                         <th>Date &amp; Time</th>
-                        <th class="text-center print-hide" style="width: 80px;">Action</th>
+                        <th class="text-center print-hide" style="width: 100px;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="salesTableBody">
                     @forelse ($sales as $sale)
+                        @php $due = $sale->due_amount; @endphp
                         <tr class="sale-row" data-search="{{ strtolower($sale->invoice_no . ' ' . ($sale->customer->name ?? '') . ' ' . ($sale->customer->phone ?? '') . ' ' . $sale->created_at->format('d M Y')) }}">
                             <td>
                                 <span class="badge bg-light text-dark font-monospace border px-2 py-1">
@@ -310,28 +312,44 @@
                             <td>
                                 <span class="text-muted small">{{ $sale->customer->phone ?? '—' }}</span>
                             </td>
-                            <td class="text-end text-muted">
-                                Rs. {{ number_format($sale->sub_total, 2) }}
-                            </td>
-                            <td class="text-end text-danger">
-                                {{ $sale->discount > 0 ? '- Rs. ' . number_format($sale->discount, 2) : '—' }}
-                            </td>
                             <td class="text-end fw-bold text-dark">
                                 Rs. {{ number_format($sale->total, 2) }}
+                            </td>
+                            <td class="text-end text-success fw-semibold">
+                                Rs. {{ number_format($sale->paid_amount, 2) }}
+                            </td>
+                            <td class="text-end fw-bold {{ $due > 0 ? 'text-danger' : 'text-muted' }}">
+                                Rs. {{ number_format($due, 2) }}
+                            </td>
+                            <td class="text-center">
+                                @if($sale->payment_status === 'paid' || $due <= 0)
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">Paid</span>
+                                @elseif($sale->payment_status === 'partial')
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1 text-dark">Partial</span>
+                                @else
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">Due</span>
+                                @endif
                             </td>
                             <td>
                                 <div class="text-dark small fw-medium">{{ $sale->created_at->format('d M, Y') }}</div>
                                 <div class="text-muted small" style="font-size: 0.72rem;">{{ $sale->created_at->format('h:i A') }}</div>
                             </td>
                             <td class="text-center print-hide">
-                                <a target="_blank" href="{{ route('pos.invoice', $sale->id) }}" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Print Invoice">
-                                    <i class="bi bi-printer"></i>
-                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <a target="_blank" href="{{ route('pos.invoice', $sale->id) }}" class="btn btn-outline-secondary py-1 px-2" title="Print Invoice">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                    @if($due > 0 || $sale->payments->count() > 1)
+                                        <a target="_blank" href="{{ route('credit-sales.receipt', $sale->id) }}" class="btn btn-outline-primary py-1 px-2" title="Installment Statement">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                        </a>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="9" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                                 No sales transactions found for this selected period.
                             </td>

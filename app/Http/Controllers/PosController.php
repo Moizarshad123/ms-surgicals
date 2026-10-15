@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\SalePayment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,28 +19,61 @@ class PosController extends Controller
     {
         $products = Product::with('category')->where('stock', '>', 0)->orderBy('name')->get();
         $categories = Category::orderBy('name')->get();
+        $customers = Customer::orderBy('name')->get(['id', 'name', 'phone']);
 
-        return view('pos.index', compact('products', 'categories'));
+        return view('pos.index', compact('products', 'categories', 'customers'));
+    }
+
+    public function searchCustomers(Request $request)
+    {
+        $q = $request->get('q', '');
+        $customers = Customer::where('name', 'like', "%{$q}%")
+            ->orWhere('phone', 'like', "%{$q}%")
+            ->limit(10)
+            ->get()
+            ->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'phone' => $c->phone,
+                'total_due' => (float) $c->total_due,
+            ]);
+
+        return response()->json($customers);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'customer_id' => ['nullable', 'exists:customers,id'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
 
         $sale = DB::transaction(function () use ($validated, $request) {
+            // Find or create customer
             $customer = null;
-            if (!empty($validated['customer_name']) || !empty($validated['customer_phone'])) {
+            if (!empty($validated['customer_id'])) {
+                $customer = Customer::find($validated['customer_id']);
+            } elseif (!empty($validated['customer_phone'])) {
+                $customer = Customer::firstOrCreate(
+                    ['phone' => $validated['customer_phone']],
+                    ['name' => !empty($validated['customer_name']) ? $validated['customer_name'] : 'Walk-in Customer']
+                );
+                if (!empty($validated['customer_name']) && $customer->name === 'Walk-in Customer') {
+                    $customer->update(['name' => $validated['customer_name']]);
+                }
+            } elseif (!empty($validated['customer_name']) && $validated['customer_name'] !== 'Walk-in Customer') {
                 $customer = Customer::create([
-                    'name' => $validated['customer_name'] ?? 'Walk-in Customer',
-                    'phone' => $validated['customer_phone'] ?? null,
+                    'name' => $validated['customer_name'],
+                    'phone' => null,
                 ]);
             }
 
@@ -67,6 +101,21 @@ class PosController extends Controller
             $discount = $validated['discount'] ?? 0;
             $total = max($subTotal - $discount, 0);
 
+            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : $total;
+            $paidAmount = min($paidInput, $total);
+
+            // Determine payment status
+            if ($paidAmount >= $total) {
+                $paymentStatus = 'paid';
+                $dueDate = null;
+            } elseif ($paidAmount > 0) {
+                $paymentStatus = 'partial';
+                $dueDate = $validated['due_date'] ?? now()->addDays(30)->toDateString();
+            } else {
+                $paymentStatus = 'due';
+                $dueDate = $validated['due_date'] ?? now()->addDays(30)->toDateString();
+            }
+
             $sale = Sale::create([
                 'invoice_no' => 'INV-' . now()->format('Ymd') . '-' . strtoupper(Str::random(5)),
                 'customer_id' => $customer?->id,
@@ -74,8 +123,23 @@ class PosController extends Controller
                 'sub_total' => $subTotal,
                 'discount' => $discount,
                 'total' => $total,
-                'paid_amount' => $validated['paid_amount'] ?? $total,
+                'paid_amount' => $paidAmount,
+                'due_date' => $dueDate,
+                'payment_status' => $paymentStatus,
+                'notes' => $validated['notes'] ?? null,
             ]);
+
+            // Record initial / advance payment
+            if ($paidAmount > 0) {
+                SalePayment::create([
+                    'sale_id' => $sale->id,
+                    'amount' => $paidAmount,
+                    'payment_date' => now()->toDateString(),
+                    'payment_method' => $validated['payment_method'] ?? 'cash',
+                    'note' => $paidAmount < $total ? 'Advance / Down Payment' : 'Full Payment at Sale',
+                    'user_id' => auth()->id(),
+                ]);
+            }
 
             foreach ($lineItems as $line) {
                 SaleItem::create([
@@ -96,6 +160,9 @@ class PosController extends Controller
             'success' => true,
             'sale_id' => $sale->id,
             'invoice_url' => route('pos.invoice', $sale->id),
+            'is_credit' => $sale->payment_status !== 'paid',
+            'due_amount' => (float) $sale->due_amount,
+            'statement_url' => route('credit-sales.receipt', $sale->id),
         ]);
     }
 
@@ -231,6 +298,8 @@ class PosController extends Controller
                 <tr><td class="label">Date:</td><td>' . $sale->created_at->format('d-m-Y h:i A') . '</td></tr>
                 <tr><td class="label">Customer:</td><td>' . e($sale->customer->name ?? 'Walk-in Customer') . '</td></tr>
                 <tr><td class="label">Phone:</td><td>' . e($sale->customer->phone ?? '-') . '</td></tr>
+                ' . ($balance > 0 ? '<tr><td class="label">Sale Type:</td><td><strong>CREDIT / INSTALLMENT</strong></td></tr>' : '') . '
+                ' . ($balance > 0 && $sale->due_date ? '<tr><td class="label">Due Date:</td><td><strong>' . $sale->due_date->format('d-m-Y') . '</strong></td></tr>' : '') . '
             </table>
 
             <hr class="dotted-line">
@@ -270,11 +339,11 @@ class PosController extends Controller
                     <td class="amt">' . number_format($sale->total, 1) . '</td>
                 </tr>
                 <tr>
-                    <td>Paid:</td>
+                    <td>' . ($balance > 0 ? 'Advance Paid:' : 'Paid:') . '</td>
                     <td class="amt">' . number_format($sale->paid_amount, 1) . '</td>
                 </tr>
                 <tr class="grand-row">
-                    <td>' . ($balance > 0 ? 'Balance Due:' : 'Change:') . '</td>
+                    <td>' . ($balance > 0 ? 'REMAINING DUE:' : 'Change:') . '</td>
                     <td class="amt">' . number_format(abs($balance), 1) . '</td>
                 </tr>
             </table>
