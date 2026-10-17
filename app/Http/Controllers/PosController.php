@@ -110,10 +110,10 @@ class PosController extends Controller
                 $dueDate = null;
             } elseif ($paidAmount > 0) {
                 $paymentStatus = 'partial';
-                $dueDate = $validated['due_date'] ?? now()->addDays(30)->toDateString();
+                $dueDate = $validated['due_date'] ?? null;
             } else {
                 $paymentStatus = 'due';
-                $dueDate = $validated['due_date'] ?? now()->addDays(30)->toDateString();
+                $dueDate = $validated['due_date'] ?? null;
             }
 
             $sale = Sale::create([
@@ -181,8 +181,8 @@ class PosController extends Controller
             $content .= '<tr>
                             <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
-                            <td>' . number_format($item->price, 1) . '</td>
-                            <td>' . number_format($item->total, 1) . '</td>
+                            <td>' . number_format($item->price) . '</td>
+                            <td>' . number_format($item->total) . '</td>
                         </tr>';
         }
 
@@ -323,11 +323,11 @@ class PosController extends Controller
             <table class="totals-table">
                 <tr>
                     <td>Sub Total:</td>
-                    <td class="amt">' . number_format($sale->sub_total, 1) . '</td>
+                    <td class="amt">' . number_format($sale->sub_total) . '</td>
                 </tr>
                 <tr>
                     <td>Discount:</td>
-                    <td class="amt">' . number_format($sale->discount, 1) . '</td>
+                    <td class="amt">' . number_format($sale->discount) . '</td>
                 </tr>
             </table>
 
@@ -336,15 +336,15 @@ class PosController extends Controller
             <table class="totals-table">
                 <tr class="grand-row">
                     <td>Total:</td>
-                    <td class="amt">' . number_format($sale->total, 1) . '</td>
+                    <td class="amt">' . number_format($sale->total) . '</td>
                 </tr>
                 <tr>
                     <td>' . ($balance > 0 ? 'Advance Paid:' : 'Paid:') . '</td>
-                    <td class="amt">' . number_format($sale->paid_amount, 1) . '</td>
+                    <td class="amt">' . number_format($sale->paid_amount) . '</td>
                 </tr>
                 <tr class="grand-row">
                     <td>' . ($balance > 0 ? 'REMAINING DUE:' : 'Change:') . '</td>
-                    <td class="amt">' . number_format(abs($balance), 1) . '</td>
+                    <td class="amt">' . number_format(abs($balance)) . '</td>
                 </tr>
             </table>
 

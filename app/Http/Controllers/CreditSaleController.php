@@ -185,14 +185,14 @@ class CreditSaleController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Installment of Rs. ' . number_format($validated['amount'], 2) . ' recorded successfully!',
+                'message' => 'Installment of Rs. ' . number_format($validated['amount']) . ' recorded successfully!',
                 'remaining_due' => (float) ($sale->fresh()->due_amount),
                 'payment_status' => $sale->fresh()->payment_status,
                 'receipt_url' => route('credit-sales.receipt', $sale->id),
             ]);
         }
 
-        return back()->with('success', 'Installment of Rs. ' . number_format($validated['amount'], 2) . ' recorded successfully!');
+        return back()->with('success', 'Installment of Rs. ' . number_format($validated['amount']) . ' recorded successfully!');
     }
 
     /**
@@ -237,8 +237,8 @@ class CreditSaleController extends Controller
             $itemRows .= '<tr>
                             <td style="text-align:left;">' . e($item->product->name ?? 'Item') . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
-                            <td>' . number_format($item->price, 1) . '</td>
-                            <td>' . number_format($item->total, 1) . '</td>
+                            <td>' . number_format($item->price) . '</td>
+                            <td>' . number_format($item->total) . '</td>
                         </tr>';
         }
 
@@ -251,7 +251,7 @@ class CreditSaleController extends Controller
             $paymentRows .= '<tr>
                                 <td>' . ($index + 1) . '. ' . $payment->payment_date->format('d/m/Y') . '</td>
                                 <td>' . e($payment->note ?: ucfirst($payment->payment_method)) . '</td>
-                                <td style="text-align:right;">Rs. ' . number_format($payment->amount, 1) . '</td>
+                                <td style="text-align:right;">Rs. ' . number_format($payment->amount) . '</td>
                             </tr>';
         }
 
@@ -368,7 +368,7 @@ class CreditSaleController extends Controller
         </head>
         <body>
             <div class="text-center">
-                <p class="shop-name">MS SURGICALS</p>
+                <p class="shop-name">TG SURGICALS</p>
                 <p class="shop-sub">
                     Shop 58, Mirwah Road TandoAllahyar<br>
                     Phone # 0334-2830393
@@ -409,15 +409,15 @@ class CreditSaleController extends Controller
             <table class="totals-table">
                 <tr>
                     <td>Sub Total:</td>
-                    <td class="amt">Rs. ' . number_format($sale->sub_total, 1) . '</td>
+                    <td class="amt">Rs. ' . number_format($sale->sub_total) . '</td>
                 </tr>
                 <tr>
                     <td>Discount:</td>
-                    <td class="amt">' . ($sale->discount > 0 ? '- Rs. ' . number_format($sale->discount, 1) : 'Rs. 0.0') . '</td>
+                    <td class="amt">' . ($sale->discount > 0 ? '- Rs. ' . number_format($sale->discount) : 'Rs. 0.0') . '</td>
                 </tr>
                 <tr class="grand-row">
                     <td>Grand Total:</td>
-                    <td class="amt">Rs. ' . number_format($sale->total, 1) . '</td>
+                    <td class="amt">Rs. ' . number_format($sale->total) . '</td>
                 </tr>
             </table>
 
@@ -442,11 +442,11 @@ class CreditSaleController extends Controller
             <table class="totals-table">
                 <tr>
                     <td>Total Paid to Date:</td>
-                    <td class="amt" style="font-weight:bold;">Rs. ' . number_format($sale->paid_amount, 1) . '</td>
+                    <td class="amt" style="font-weight:bold;">Rs. ' . number_format($sale->paid_amount) . '</td>
                 </tr>
                 <tr class="due-row">
                     <td>REMAINING BALANCE:</td>
-                    <td class="amt">Rs. ' . number_format(max(0, $balance), 1) . '</td>
+                    <td class="amt">Rs. ' . number_format(max(0, $balance)) . '</td>
                 </tr>
             </table>
 

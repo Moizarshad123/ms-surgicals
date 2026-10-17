@@ -59,4 +59,14 @@ class Sale extends Model
     {
         return (float) $this->paid_amount < (float) $this->total;
     }
+
+    public function returns()
+    {
+        return $this->hasMany(SaleReturn::class)->latest();
+    }
+
+    public function getTotalReturnedAttribute(): float
+    {
+        return (float) $this->returns()->sum('total_amount');
+    }
 }

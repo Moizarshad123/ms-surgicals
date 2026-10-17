@@ -110,7 +110,7 @@
 <div class="print-header">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold mb-0">MS SURGICALS</h3>
+            <h3 class="fw-bold mb-0">TG SURGICALS</h3>
             <p class="mb-0 text-muted">Purchase &amp; Inventory Restock Report</p>
         </div>
         <div class="text-end">
@@ -202,7 +202,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Total Purchases Spend</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalPurchases, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalPurchases) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(255,110,64,0.1); color: #ff6e40;">
                     <i class="bi bi-wallet2"></i>
@@ -244,7 +244,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Average Invoice</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($averageOrder, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($averageOrder) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(5,177,113,0.1); color: #05b171;">
                     <i class="bi bi-pie-chart"></i>
@@ -315,14 +315,19 @@
                                 Rs. {{ number_format($purchase->total, 2) }}
                             </td>
                             <td class="text-end print-hide">
-                                <button type="button" class="btn btn-sm btn-outline-primary btn-view-purchase py-1 px-2"
-                                        data-ref="{{ $purchase->reference_no }}"
-                                        data-supplier="{{ $purchase->supplier_name ?: 'General Supplier' }}"
-                                        data-date="{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('d M, Y') }}"
-                                        data-total="Rs. {{ number_format($purchase->total, 2) }}"
-                                        data-items='@json($itemsPayload)'>
-                                    <i class="bi bi-eye me-1"></i> View
-                                </button>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary btn-view-purchase py-1 px-2"
+                                            data-ref="{{ $purchase->reference_no }}"
+                                            data-supplier="{{ $purchase->supplier_name ?: 'General Supplier' }}"
+                                            data-date="{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('d M, Y') }}"
+                                            data-total="Rs. {{ number_format($purchase->total) }}"
+                                            data-items='@json($itemsPayload)'>
+                                        <i class="bi bi-eye me-1"></i> View
+                                    </button>
+                                    <a href="{{ route('purchase-returns.create', ['purchase_id' => $purchase->id]) }}" class="btn btn-outline-warning py-1 px-2" title="Return to Supplier">
+                                        <i class="bi bi-arrow-return-left"></i> Return
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -339,7 +344,7 @@
                         <tr class="fw-bold text-dark">
                             <td colspan="3" class="text-end">Summary Totals:</td>
                             <td class="text-center">{{ number_format($totalUnitsRestocked) }} units</td>
-                            <td class="text-end text-success fs-6">Rs. {{ number_format($totalPurchases, 2) }}</td>
+                            <td class="text-end text-success fs-6">Rs. {{ number_format($totalPurchases) }}</td>
                             <td class="print-hide"></td>
                         </tr>
                     </tfoot>

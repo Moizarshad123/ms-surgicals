@@ -95,7 +95,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Total Expenses</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalExpenses, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalExpenses) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(234,68,68,0.1); color: #ea4444;">
                     <i class="bi bi-wallet2"></i>
@@ -109,7 +109,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">This Month's Expenses</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($thisMonthExpenses, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($thisMonthExpenses) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(255,110,64,0.1); color: #ff6e40;">
                     <i class="bi bi-calendar-check"></i>
@@ -123,7 +123,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Today's Expenses</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todayExpenses, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todayExpenses) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(37,194,227,0.1); color: #25c2e3;">
                     <i class="bi bi-clock-history"></i>
@@ -215,7 +215,7 @@
                                 <div class="text-muted small" style="font-size: 0.75rem;">{{ \Carbon\Carbon::parse($expense->expense_date)->diffForHumans() }}</div>
                             </td>
                             <td>
-                                <span class="fw-bold text-danger fs-6">Rs. {{ number_format($expense->amount, 2) }}</span>
+                                <span class="fw-bold text-danger fs-6">Rs. {{ number_format($expense->amount) }}</span>
                             </td>
                             <td>
                                 <span class="text-muted small">{{ $expense->note ?: '—' }}</span>
@@ -224,7 +224,7 @@
                                 <button type="button" class="btn btn-sm btn-outline-danger btn-delete-expense"
                                         data-url="{{ route('expenses.destroy', $expense) }}"
                                         data-title="{{ $expense->title }}"
-                                        data-amount="Rs. {{ number_format($expense->amount, 2) }}"
+                                        data-amount="Rs. {{ number_format($expense->amount) }}"
                                         title="Delete expense">
                                     <i class="bi bi-trash"></i>
                                 </button>

@@ -95,7 +95,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Total Purchases Cost</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalSpent, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalSpent) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(255,110,64,0.1); color: #ff6e40;">
                     <i class="bi bi-wallet2"></i>
@@ -109,7 +109,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">This Month's Purchases</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($thisMonthSpent, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($thisMonthSpent) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(37,194,227,0.1); color: #25c2e3;">
                     <i class="bi bi-calendar-check"></i>
@@ -221,17 +221,22 @@
                                 </span>
                             </td>
                             <td>
-                                <span class="fw-bold text-dark fs-6">Rs. {{ number_format($purchase->total, 2) }}</span>
+                                <span class="fw-bold text-dark fs-6">Rs. {{ number_format($purchase->total) }}</span>
                             </td>
                             <td class="text-end">
-                                <button type="button" class="btn btn-sm btn-outline-primary btn-view-purchase"
-                                        data-ref="{{ $purchase->reference_no }}"
-                                        data-supplier="{{ $purchase->supplier_name ?: 'General Supplier' }}"
-                                        data-date="{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('d M, Y') }}"
-                                        data-total="Rs. {{ number_format($purchase->total, 2) }}"
-                                        data-items='@json($itemsPayload)'>
-                                    <i class="bi bi-eye me-1"></i> View
-                                </button>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary btn-view-purchase"
+                                            data-ref="{{ $purchase->reference_no }}"
+                                            data-supplier="{{ $purchase->supplier_name ?: 'General Supplier' }}"
+                                            data-date="{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('d M, Y') }}"
+                                            data-total="Rs. {{ number_format($purchase->total) }}"
+                                            data-items='@json($itemsPayload)'>
+                                        <i class="bi bi-eye me-1"></i> View
+                                    </button>
+                                    <a href="{{ route('purchase-returns.create', ['purchase_id' => $purchase->id]) }}" class="btn btn-outline-warning" title="Return to Supplier">
+                                        <i class="bi bi-arrow-return-left"></i> Return
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     @empty

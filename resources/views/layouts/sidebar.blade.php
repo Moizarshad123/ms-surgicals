@@ -17,7 +17,7 @@
                             class="rounded-circle" alt="image">
                     </div>
                     <div>
-                        <div class="fw-bold">MS Surgicals</div>
+                        <div class="fw-bold">TG Surgicals</div>
                     </div>
                 </a>
             </div>
@@ -51,6 +51,15 @@
             </li>
 
             <li>
+                <a class="{{ request()->is('sales-returns*') ? 'active' : '' }}" href="{{ route('sales-returns.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </span>
+                    <span>Sales Return</span>
+                </a>
+            </li>
+
+            <li>
                 <a class="{{ request()->is('categories*') ? 'active' : '' }}" href="{{ route('categories.index') }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-tags"></i>
@@ -70,11 +79,20 @@
             </li>
 
             <li>
-                <a class="{{ request()->is('purchases*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
+                <a class="{{ request()->is('purchases*') && !request()->is('purchase-returns*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-credit-card"></i>
                     </span>
                     <span>Purchases</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{{ request()->is('purchase-returns*') ? 'active' : '' }}" href="{{ route('purchase-returns.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-arrow-return-left"></i>
+                    </span>
+                    <span>Purchase Return</span>
                 </a>
             </li>
           
@@ -84,6 +102,15 @@
                         <i class="bi bi-cash"></i>
                     </span>
                     <span>Expenses</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{{ request()->is('banks*') ? 'active' : '' }}" href="{{ route('banks.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-bank"></i>
+                    </span>
+                    <span>Bank Accounts</span>
                 </a>
             </li>
 
@@ -103,6 +130,9 @@
                     </li>
                     <li>
                         <a class="{{ request()->is('reports/expenses*') ? 'active' : '' }}" href="{{ route('reports.expenses') }}">Expense Report</a>
+                    </li>
+                    <li>
+                        <a class="{{ request()->is('reports/bank*') ? 'active' : '' }}" href="{{ route('reports.bank') }}">Bank Statement / Report</a>
                     </li>
                 </ul>
             </li>

@@ -110,7 +110,7 @@
 <div class="print-header">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold mb-0">MS SURGICALS</h3>
+            <h3 class="fw-bold mb-0">TG SURGICALS</h3>
             <p class="mb-0 text-muted">Sales &amp; Revenue Report</p>
         </div>
         <div class="text-end">
@@ -202,7 +202,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Total Revenue</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalSales, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalSales) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(255,110,64,0.1); color: #ff6e40;">
                     <i class="bi bi-cash-stack"></i>
@@ -244,7 +244,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Discounts Given</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalDiscount, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalDiscount) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(234,68,68,0.1); color: #ea4444;">
                     <i class="bi bi-tag"></i>
@@ -258,7 +258,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Average Order</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($averageOrder, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($averageOrder) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(5,177,113,0.1); color: #05b171;">
                     <i class="bi bi-pie-chart"></i>
@@ -313,17 +313,17 @@
                                 <span class="text-muted small">{{ $sale->customer->phone ?? '—' }}</span>
                             </td>
                             <td class="text-end fw-bold text-dark">
-                                Rs. {{ number_format($sale->total, 2) }}
+                                Rs. {{ number_format($sale->total) }}
                             </td>
                             <td class="text-end text-success fw-semibold">
-                                Rs. {{ number_format($sale->paid_amount, 2) }}
+                                Rs. {{ number_format($sale->paid_amount) }}
                             </td>
                             <td class="text-end fw-bold {{ $due > 0 ? 'text-danger' : 'text-muted' }}">
-                                Rs. {{ number_format($due, 2) }}
+                                Rs. {{ number_format($due) }}
                             </td>
                             <td class="text-center">
                                 @if($sale->payment_status === 'paid' || $due <= 0)
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">Paid</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1" style="color: #fff !important;">Paid</span>
                                 @elseif($sale->payment_status === 'partial')
                                     <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1 text-dark">Partial</span>
                                 @else
@@ -344,6 +344,9 @@
                                             <i class="bi bi-file-earmark-text"></i>
                                         </a>
                                     @endif
+                                    <a href="{{ route('sales-returns.create', ['sale_id' => $sale->id]) }}" class="btn btn-outline-warning py-1 px-2" title="Process Sales Return">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -360,9 +363,9 @@
                     <tfoot class="table-light border-top">
                         <tr class="fw-bold text-dark">
                             <td colspan="3" class="text-end">Summary Totals:</td>
-                            <td class="text-end">Rs. {{ number_format($totalSubTotal, 2) }}</td>
-                            <td class="text-end text-danger">Rs. {{ number_format($totalDiscount, 2) }}</td>
-                            <td class="text-end text-success fs-6">Rs. {{ number_format($totalSales, 2) }}</td>
+                            <td class="text-end">Rs. {{ number_format($totalSubTotal) }}</td>
+                            <td class="text-end text-danger">Rs. {{ number_format($totalDiscount) }}</td>
+                            <td class="text-end text-success fs-6">Rs. {{ number_format($totalSales) }}</td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>

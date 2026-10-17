@@ -101,7 +101,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Today's Sales Revenue</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todaySales, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todaySales) }}</h4>
                     <div class="text-muted small mt-1">
                         <i class="bi bi-receipt text-primary me-1"></i>{{ $todaySalesCount }} {{ Str::plural('order', $todaySalesCount) }} today
                     </div>
@@ -118,7 +118,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Today's Purchases</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todayPurchases, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todayPurchases) }}</h4>
                     <div class="text-muted small mt-1">
                         <i class="bi bi-truck text-info me-1"></i>{{ $todayPurchasesCount }} restock {{ Str::plural('order', $todayPurchasesCount) }}
                     </div>
@@ -135,7 +135,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Today's Expenses</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todayExpenses, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($todayExpenses) }}</h4>
                     <div class="text-muted small mt-1">
                         <i class="bi bi-receipt-cutoff text-danger me-1"></i>{{ $todayExpensesCount }} expense {{ Str::plural('entry', $todayExpensesCount) }}
                     </div>
@@ -153,7 +153,7 @@
                 <div>
                     <div class="text-muted small fw-semibold">Net Daily Balance</div>
                     <h4 class="fw-bold mt-1 mb-0 {{ $todayNetCash >= 0 ? 'text-success' : 'text-danger' }}">
-                        Rs. {{ number_format($todayNetCash, 2) }}
+                        Rs. {{ number_format($todayNetCash) }}
                     </h4>
                     <div class="small mt-1">
                         @if($todayNetCash >= 0)
@@ -276,7 +276,7 @@
                                         <span class="badge bg-secondary-subtle text-dark border">{{ $sale->items->sum('quantity') }}</span>
                                     </td>
                                     <td class="text-end fw-bold text-dark">
-                                        Rs. {{ number_format($sale->total, 2) }}
+                                        Rs. {{ number_format($sale->total) }}
                                     </td>
                                     <td>
                                         <span class="text-muted small">{{ $sale->created_at->setTimezone('Asia/Karachi')->format('d M, h:i A') }}</span>
@@ -404,7 +404,7 @@
     <div class="col-sm-6 col-md-3">
         <div class="mini-stat-bar d-flex align-items-center justify-content-between">
             <span class="text-muted small">This Month's Sales</span>
-            <span class="fw-bold text-dark fs-6">Rs. {{ number_format($monthSales, 2) }}</span>
+            <span class="fw-bold text-dark fs-6">Rs. {{ number_format($monthSales) }}</span>
         </div>
     </div>
     <div class="col-sm-6 col-md-3">

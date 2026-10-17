@@ -9,7 +9,7 @@
         </div>
         <!-- Logo -->
         <a href="{{ route('dashboard') }}" class="logo">
-            <img width="120" src="{{ asset('admin/images/logo-2.png') }}" alt="MS Surgicals">
+            <img width="120" src="{{ asset('admin/images/logo-2.png') }}" alt="TG Surgicals">
         </a>
         <!-- ./ Logo -->
         <div class="page-title">@yield('page-title', 'Overview')</div>

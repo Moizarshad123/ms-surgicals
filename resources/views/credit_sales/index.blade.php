@@ -105,7 +105,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Total Credit Billed</div>
-                    <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalCreditBilled, 0) }}</div>
+                    <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalCreditBilled) }}</div>
                     <div class="small text-muted mt-1">Gross total of credit sales</div>
                 </div>
                 <div class="credit-kpi-icon bg-primary bg-opacity-10 text-primary">
@@ -118,7 +118,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Total Collected</div>
-                    <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalCreditCollected, 0) }}</div>
+                    <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalCreditCollected) }}</div>
                     <div class="small text-muted mt-1">Advance + installments</div>
                 </div>
                 <div class="credit-kpi-icon bg-success bg-opacity-10 text-success">
@@ -131,7 +131,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Remaining Outstanding</div>
-                    <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($totalOutstandingDue, 0) }}</div>
+                    <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($totalOutstandingDue) }}</div>
                     <div class="small text-danger mt-1 fw-medium">
                         @if($totalOverdueCount > 0)
                             <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ $totalOverdueCount }} Overdue
@@ -245,16 +245,16 @@
                                     @endif
                                 </td>
                                 <td class="text-end fw-semibold text-dark">
-                                    Rs. {{ number_format($sale->total, 2) }}
+                                    Rs. {{ number_format($sale->total) }}
                                 </td>
                                 <td class="text-end text-success fw-semibold">
-                                    Rs. {{ number_format($sale->paid_amount, 2) }}
+                                    Rs. {{ number_format($sale->paid_amount) }}
                                     @if($sale->payments->count() > 1)
                                         <div class="small text-muted">({{ $sale->payments->count() }} payments)</div>
                                     @endif
                                 </td>
                                 <td class="text-end fw-bold {{ $due > 0 ? 'text-danger' : 'text-muted' }}">
-                                    Rs. {{ number_format($due, 2) }}
+                                    Rs. {{ number_format($due) }}
                                 </td>
                                 <td class="text-center">
                                     @if($sale->payment_status === 'paid' || $due <= 0)
@@ -287,6 +287,12 @@
                                         <a href="{{ route('credit-sales.receipt', $sale->id) }}" target="_blank" 
                                            class="btn btn-outline-secondary" title="Print Installment Statement">
                                             <i class="bi bi-printer"></i>
+                                        </a>
+
+                                        <!-- Sales Return Button -->
+                                        <a href="{{ route('sales-returns.create', ['sale_id' => $sale->id]) }}" 
+                                           class="btn btn-outline-warning" title="Return Items">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
                                         </a>
                                     </div>
                                 </td>

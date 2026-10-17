@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bank;
+use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\Purchase;
@@ -127,6 +129,85 @@ class ReportController extends Controller
         return view('reports.expenses', compact(
             'expenses', 'period', 'date', 'startDate', 'endDate', 'start', 'end', 'categoryId', 'categories',
             'totalExpenses', 'totalEntries', 'averageExpense', 'topCategory', 'topCategoryAmount'
+        ));
+    }
+
+    public function bank(Request $request)
+    {
+        [$start, $end, $period, $startDate, $endDate, $date] = $this->resolveRange($request);
+        $bankId = $request->get('bank_id');
+        $type = $request->get('type');
+        $search = $request->get('search');
+
+        $banks = Bank::all();
+
+        // 1. Calculate Opening Balance before $start
+        $priorBankQuery = Bank::query();
+        if ($bankId && $bankId !== 'all') {
+            $priorBankQuery->where('id', $bankId);
+        }
+        $baseOpening = (float) $priorBankQuery->sum('opening_balance');
+
+        $priorTxQuery = BankTransaction::where('transaction_date', '<', $start->toDateString());
+        if ($bankId && $bankId !== 'all') {
+            $priorTxQuery->where('bank_id', $bankId);
+        }
+        $priorCredit = (float) (clone $priorTxQuery)->where('type', 'credit')->sum('amount');
+        $priorDebit  = (float) (clone $priorTxQuery)->where('type', 'debit')->sum('amount');
+        $openingBalance = $baseOpening + $priorCredit - $priorDebit;
+
+        // 2. Query transactions within the period
+        $query = BankTransaction::with(['bank', 'user'])
+            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
+
+        if ($bankId && $bankId !== 'all') {
+            $query->where('bank_id', $bankId);
+        }
+
+        if ($type && in_array($type, ['credit', 'debit'])) {
+            $query->where('type', $type);
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('person_name', 'like', "%{$search}%")
+                  ->orWhere('reference_no', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // Ordered chronologically for statement ledger
+        $transactions = $query->orderBy('transaction_date', 'asc')
+            ->orderBy('transaction_time', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        // Calculate period metrics
+        $totalCredit = $transactions->where('type', 'credit')->sum('amount');
+        $totalDebit  = $transactions->where('type', 'debit')->sum('amount');
+        $netChange   = $totalCredit - $totalDebit;
+        $closingBalance = $openingBalance + $netChange;
+        $totalCount  = $transactions->count();
+
+        // Running balance for statement ledger
+        $runningBalance = $openingBalance;
+        $statementRows = $transactions->map(function ($tx) use (&$runningBalance) {
+            if ($tx->type === 'credit') {
+                $runningBalance += (float) $tx->amount;
+            } else {
+                $runningBalance -= (float) $tx->amount;
+            }
+            $tx->running_balance = $runningBalance;
+            return $tx;
+        });
+
+        $selectedBank = ($bankId && $bankId !== 'all') ? Bank::find($bankId) : null;
+
+        return view('reports.bank', compact(
+            'statementRows', 'period', 'date', 'startDate', 'endDate', 'start', 'end',
+            'banks', 'bankId', 'type', 'search', 'selectedBank',
+            'openingBalance', 'totalCredit', 'totalDebit', 'netChange', 'closingBalance', 'totalCount'
         ));
     }
 }

@@ -29,6 +29,16 @@ class Product extends Model
         return $this->hasMany(PurchaseItem::class);
     }
 
+    public function returnItems()
+    {
+        return $this->hasMany(SaleReturnItem::class);
+    }
+
+    public function purchaseReturnItems()
+    {
+        return $this->hasMany(PurchaseReturnItem::class);
+    }
+
     // Scope: products whose stock is at/below their alert quantity
     public function scopeLowStock($query)
     {

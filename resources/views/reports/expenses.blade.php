@@ -110,7 +110,7 @@
 <div class="print-header">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h3 class="fw-bold mb-0">MS SURGICALS</h3>
+            <h3 class="fw-bold mb-0">TG SURGICALS</h3>
             <p class="mb-0 text-muted">Business Expenditures &amp; Cost Report</p>
         </div>
         <div class="text-end">
@@ -207,7 +207,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Total Expenses</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalExpenses, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($totalExpenses) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(234,68,68,0.1); color: #ea4444;">
                     <i class="bi bi-wallet2"></i>
@@ -236,7 +236,7 @@
                 <div>
                     <div class="text-muted small fw-semibold">Top Spending Category</div>
                     <h5 class="fw-bold text-dark mt-1 mb-0 text-truncate" style="max-width: 150px;">{{ $topCategory }}</h5>
-                    <small class="text-muted">Rs. {{ number_format($topCategoryAmount, 2) }}</small>
+                    <small class="text-muted">Rs. {{ number_format($topCategoryAmount) }}</small>
                 </div>
                 <div class="kpi-icon" style="background: rgba(108,92,231,0.1); color: #6c5ce7;">
                     <i class="bi bi-tag"></i>
@@ -250,7 +250,7 @@
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
                     <div class="text-muted small fw-semibold">Average Expense</div>
-                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($averageExpense, 2) }}</h4>
+                    <h4 class="fw-bold text-dark mt-1 mb-0">Rs. {{ number_format($averageExpense) }}</h4>
                 </div>
                 <div class="kpi-icon" style="background: rgba(5,177,113,0.1); color: #05b171;">
                     <i class="bi bi-pie-chart"></i>
@@ -307,7 +307,7 @@
                                 <div class="text-muted small" style="font-size: 0.72rem;">{{ \Carbon\Carbon::parse($expense->expense_date)->diffForHumans() }}</div>
                             </td>
                             <td class="text-end fw-bold text-danger">
-                                Rs. {{ number_format($expense->amount, 2) }}
+                                Rs. {{ number_format($expense->amount) }}
                             </td>
                             <td>
                                 <span class="text-muted small">{{ $expense->note ?: '—' }}</span>
@@ -326,7 +326,7 @@
                     <tfoot class="table-light border-top">
                         <tr class="fw-bold text-dark">
                             <td colspan="4" class="text-end">Total Expenditures:</td>
-                            <td class="text-end text-danger fs-6">Rs. {{ number_format($totalExpenses, 2) }}</td>
+                            <td class="text-end text-danger fs-6">Rs. {{ number_format($totalExpenses) }}</td>
                             <td></td>
                         </tr>
                     </tfoot>

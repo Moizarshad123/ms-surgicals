@@ -506,6 +506,12 @@
             <i class="bi bi-keyboard me-1"></i> <kbd class="bg-white text-dark border px-1">F2</kbd> Search &bull; <kbd class="bg-white text-dark border px-1">F4</kbd> Clear Cart
         </span>
 
+        <!-- Sales Return Shortcut Button -->
+        <a href="{{ route('sales-returns.create') }}" class="btn btn-outline-warning btn-sm px-3 d-flex align-items-center gap-1" title="Sales Return">
+            <i class="bi bi-arrow-counterclockwise"></i>
+            <span class="d-none d-sm-inline">Sales Return</span>
+        </a>
+
         <!-- Quick Sidebar / Full-Width Toggle Button -->
         <button type="button" id="btnToggleSidebar" class="btn btn-outline-secondary btn-sm px-3 d-flex align-items-center gap-2" title="Toggle Sidebar">
             <i class="bi bi-layout-sidebar-inset"></i>
@@ -769,25 +775,11 @@
 
                 <!-- Credit / Installment Details (Visible when Credit selected) -->
                 <div id="creditFieldsSection" class="mt-3 p-3 rounded-3 d-none" style="background:#fffaf8; border:1px dashed #ffb899;">
-                    <div class="row g-2 mb-2">
-                        <div class="col-sm-7">
-                            <label class="form-label small fw-semibold text-dark">
-                                <i class="bi bi-calendar-event me-1 text-primary"></i> Installment Deadline <span class="text-danger">*</span>
-                            </label>
-                            <input type="date" id="modalDueDate" class="form-control form-control-sm" value="{{ now()->addDays(30)->toDateString() }}">
-                        </div>
-                        <div class="col-sm-5">
-                            <label class="form-label small fw-semibold text-dark">Quick Period</label>
-                            <div class="btn-group btn-group-sm w-100">
-                                <button type="button" class="btn btn-outline-secondary" onclick="setDueDays(15)">15d</button>
-                                <button type="button" class="btn btn-outline-secondary active" onclick="setDueDays(30)">1 Month</button>
-                                <button type="button" class="btn btn-outline-secondary" onclick="setDueDays(60)">2 Months</button>
-                            </div>
-                        </div>
-                    </div>
                     <div>
-                        <label class="form-label small fw-semibold text-dark">Agreement / Installment Note (Optional)</label>
-                        <input type="text" id="modalSaleNotes" class="form-control form-control-sm" placeholder="e.g. Remaining balance to be paid within 1 month">
+                        <label class="form-label small fw-semibold text-dark">
+                            <i class="bi bi-chat-left-text me-1 text-primary"></i> Agreement / Installment Note (Optional)
+                        </label>
+                        <input type="text" id="modalSaleNotes" class="form-control form-control-sm" placeholder="e.g. Flexible installment payments">
                     </div>
                 </div>
 
@@ -1210,15 +1202,6 @@
         calculateChange();
     }
 
-    function setDueDays(days) {
-        const targetDate = new Date();
-        targetDate.setDate(targetDate.getDate() + days);
-        const yyyy = targetDate.getFullYear();
-        const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(targetDate.getDate()).padStart(2, '0');
-        document.getElementById('modalDueDate').value = `${yyyy}-${mm}-${dd}`;
-    }
-
     function onCustomerInput() {
         const inputName = document.getElementById('modalCustomerName').value.trim();
         const alertBox = document.getElementById('customerExistingAlert');
@@ -1328,7 +1311,6 @@
 
         const customerName = document.getElementById('modalCustomerName').value.trim();
         const customerPhone = document.getElementById('modalCustomerPhone').value.trim();
-        const dueDate = document.getElementById('modalDueDate').value;
         const notes = document.getElementById('modalSaleNotes').value.trim();
 
         const isCreditSale = (currentSaleType === 'credit') || (paidAmount < total);
@@ -1345,11 +1327,6 @@
                 document.getElementById('modalCustomerPhone').focus();
                 return;
             }
-            if (!dueDate) {
-                errorBox.innerText = 'Please select an installment deadline / due date.';
-                document.getElementById('modalDueDate').focus();
-                return;
-            }
         }
 
         const payload = {
@@ -1358,7 +1335,7 @@
             customer_phone: customerPhone || null,
             discount: discount,
             paid_amount: paidAmount,
-            due_date: isCreditSale ? dueDate : null,
+            due_date: null,
             notes: notes || null,
             payment_method: 'cash',
             items: cart.map(i => ({ product_id: i.id, quantity: i.quantity })),

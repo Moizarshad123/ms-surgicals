@@ -94,7 +94,7 @@
 
         <center id="top">
             <div class="info">
-                <h2>MS Surgicals</h2>
+                <h2>TG Surgicals</h2>
                 <p>Surgical &amp; Medical Equipment</p>
             </div>
         </center><!--End InvoiceTop-->
@@ -124,29 +124,29 @@
                         <tr class="service">
                             <td class="tableitem"><p class="itemtext">{{ $item->product->name ?? 'N/A' }}</p></td>
                             <td class="tableitem" style="text-align:center;"><p class="itemtext">{{ $item->quantity }}</p></td>
-                            <td class="tableitem Rate"><p class="itemtext">{{ number_format($item->total, 2) }}</p></td>
+                            <td class="tableitem Rate"><p class="itemtext">{{ number_format($item->total) }}</p></td>
                         </tr>
                     @endforeach
 
                     <tr class="tabletitle">
                         <td></td>
                         <td class="Rate"><h2>Sub Total</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->sub_total, 2) }}</h2></td>
+                        <td class="payment"><h2>Rs. {{ number_format($sale->sub_total) }}</h2></td>
                     </tr>
                     <tr class="tabletitle">
                         <td></td>
                         <td class="Rate"><h2>Discount</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->discount, 2) }}</h2></td>
+                        <td class="payment"><h2>Rs. {{ number_format($sale->discount) }}</h2></td>
                     </tr>
                     <tr class="tabletitle grand-row">
                         <td></td>
                         <td class="Rate"><h2>Total</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->total, 2) }}</h2></td>
+                        <td class="payment"><h2>Rs. {{ number_format($sale->total) }}</h2></td>
                     </tr>
                     <tr class="tabletitle">
                         <td></td>
                         <td class="Rate"><h2>Paid</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->paid_amount, 2) }}</h2></td>
+                        <td class="payment"><h2>Rs. {{ number_format($sale->paid_amount) }}</h2></td>
                     </tr>
                 </table>
             </div><!--End Table-->

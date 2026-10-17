@@ -15,4 +15,14 @@ class Purchase extends Model
     {
         return $this->hasMany(PurchaseItem::class);
     }
+
+    public function returns()
+    {
+        return $this->hasMany(PurchaseReturn::class)->latest();
+    }
+
+    public function getTotalReturnedAttribute(): float
+    {
+        return (float) $this->returns()->sum('total_amount');
+    }
 }
