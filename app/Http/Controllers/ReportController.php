@@ -46,7 +46,7 @@ class ReportController extends Controller
         [$start, $end, $period, $startDate, $endDate, $date] = $this->resolveRange($request);
         $search = $request->get('search');
 
-        $query = Sale::with(['customer', 'items.product'])
+        $query = Sale::with(['customer', 'items.product', 'items.returnItems', 'returns'])
             ->whereBetween('created_at', [$start, $end]);
 
         if ($search) {
@@ -61,16 +61,19 @@ class ReportController extends Controller
 
         $sales = $query->latest()->get();
 
-        $totalSales     = $sales->sum('total');
-        $totalDiscount  = $sales->sum('discount');
-        $totalSubTotal  = $sales->sum('sub_total');
-        $totalInvoices  = $sales->count();
-        $totalItems     = $sales->sum(fn($s) => $s->items->sum('quantity'));
-        $averageOrder   = $totalInvoices > 0 ? ($totalSales / $totalInvoices) : 0;
+        $totalSales         = $sales->sum('total');
+        $totalDiscount      = $sales->sum('discount');
+        $totalSubTotal      = $sales->sum('sub_total');
+        $totalInvoices      = $sales->count();
+        $totalSoldUnits     = (int) $sales->sum(fn($s) => $s->items->sum('quantity'));
+        $totalReturnedUnits = (int) $sales->sum(fn($s) => $s->items->sum(fn($i) => $i->returnItems->sum('quantity')));
+        $totalItems         = max(0, $totalSoldUnits - $totalReturnedUnits);
+        $averageOrder       = $totalInvoices > 0 ? ($totalSales / $totalInvoices) : 0;
 
         return view('reports.sales', compact(
             'sales', 'period', 'date', 'startDate', 'endDate', 'start', 'end', 'search',
-            'totalSales', 'totalDiscount', 'totalSubTotal', 'totalInvoices', 'totalItems', 'averageOrder'
+            'totalSales', 'totalDiscount', 'totalSubTotal', 'totalInvoices', 'totalItems',
+            'totalSoldUnits', 'totalReturnedUnits', 'averageOrder'
         ));
     }
 

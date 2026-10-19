@@ -93,9 +93,13 @@
     <div id="invoice-POS">
 
         <center id="top">
+            <img style="width:110px; height:auto; display:block; margin:0 auto 4px;" src="{{ asset('admin/images/logo-2.png') }}" alt="TG Surgicals"/>
             <div class="info">
-                <h2>TG Surgicals</h2>
-                <p>Surgical &amp; Medical Equipment</p>
+                <p style="margin:0; font-size:10px; color:#333; line-height:1.3;">
+                    Shop 58, Mirwah Road TandoAllahyar.<br>
+                    Phone # 0334-2830393
+                </p>
+                <h3 style="font-size:12px; font-weight:bold; margin:6px 0 0 0; text-transform:uppercase; letter-spacing:0.5px;">Sale Receipt</h3>
             </div>
         </center><!--End InvoiceTop-->
 
@@ -128,25 +132,54 @@
                         </tr>
                     @endforeach
 
+                    @php
+                        $currentDue = max(0, (float) $sale->total - (float) $sale->paid_amount);
+                        $previousBalance = 0;
+                        if ($sale->customer_id) {
+                            $previousBalance = (float) \App\Models\Sale::where('customer_id', $sale->customer_id)
+                                ->where('id', '<', $sale->id)
+                                ->whereRaw('total > paid_amount')
+                                ->sum(\Illuminate\Support\Facades\DB::raw('total - paid_amount'));
+                            $previousBalance = max(0, $previousBalance);
+                        }
+                        $totalNetDue = $previousBalance + $currentDue;
+                    @endphp
+
                     <tr class="tabletitle">
                         <td></td>
                         <td class="Rate"><h2>Sub Total</h2></td>
                         <td class="payment"><h2>Rs. {{ number_format($sale->sub_total) }}</h2></td>
                     </tr>
+                    @if($sale->discount > 0)
                     <tr class="tabletitle">
                         <td></td>
                         <td class="Rate"><h2>Discount</h2></td>
                         <td class="payment"><h2>Rs. {{ number_format($sale->discount) }}</h2></td>
                     </tr>
+                    @endif
                     <tr class="tabletitle grand-row">
                         <td></td>
-                        <td class="Rate"><h2>Total</h2></td>
+                        <td class="Rate"><h2>Inv Total Amt</h2></td>
                         <td class="payment"><h2>Rs. {{ number_format($sale->total) }}</h2></td>
                     </tr>
+                    @if($sale->customer_id)
                     <tr class="tabletitle">
                         <td></td>
-                        <td class="Rate"><h2>Paid</h2></td>
+                        <td class="Rate"><h2>Previous Bal</h2></td>
+                        <td class="payment"><h2>Rs. {{ number_format($previousBalance) }}</h2></td>
+                    </tr>
+                    @endif
+                    @if($sale->paid_amount > 0)
+                    <tr class="tabletitle">
+                        <td></td>
+                        <td class="Rate"><h2>{{ $currentDue > 0 ? 'Paid Today' : 'Paid' }}</h2></td>
                         <td class="payment"><h2>Rs. {{ number_format($sale->paid_amount) }}</h2></td>
+                    </tr>
+                    @endif
+                    <tr class="tabletitle grand-row">
+                        <td></td>
+                        <td class="Rate"><h2>{{ $sale->customer_id ? 'Total Net Due' : ($currentDue > 0 ? 'Remaining Due' : 'Change') }}</h2></td>
+                        <td class="payment"><h2>Rs. {{ number_format($sale->customer_id ? $totalNetDue : ($currentDue > 0 ? $currentDue : abs($sale->paid_amount - $sale->total))) }}</h2></td>
                     </tr>
                 </table>
             </div><!--End Table-->

@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos', [PosController::class, 'store'])->name('pos.store');
     Route::get('/pos/invoice/{sale}', [PosController::class, 'invoice'])->name('pos.invoice');
     Route::get('/pos/customers/search', [PosController::class, 'searchCustomers'])->name('pos.customers.search');
+    Route::delete('/sales/{sale}', [PosController::class, 'destroy'])->name('sales.destroy');
 
     // Credit Sales & Installments
     Route::get('/credit-sales', [CreditSaleController::class, 'index'])->name('credit-sales.index');

@@ -294,6 +294,10 @@
                                            class="btn btn-outline-warning" title="Return Items">
                                             <i class="bi bi-arrow-counterclockwise"></i>
                                         </a>
+                                        <!-- Delete Sale Button -->
+                                        <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteSale({{ $sale->id }}, '{{ $sale->invoice_no }}')" title="Delete Sale & Restore Stock">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -628,6 +632,31 @@
                     toastr.error('Failed to load installment details.');
                 }
             });
+    }
+
+    function confirmDeleteSale(saleId, invoiceNo) {
+        if (!confirm(`Are you sure you want to delete Sale ${invoiceNo}?\n\nThis will permanently delete this sale and restore the sold quantities back to product inventory.`)) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/sales/${saleId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        document.body.appendChild(form);
+        form.submit();
     }
 </script>
 @endpush

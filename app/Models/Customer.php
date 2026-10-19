@@ -12,6 +12,8 @@ class Customer extends Model
 
     protected $fillable = ['name', 'phone'];
 
+    protected $appends = ['total_due'];
+
     public function sales()
     {
         return $this->hasMany(Sale::class);

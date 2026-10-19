@@ -297,8 +297,6 @@ class SalesReturnController extends Controller
     {
         $saleReturn->load(['sale', 'customer', 'user', 'items.product']);
 
-        $logoPath = public_path('admin/images/logo-2.png');
-        $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
 
         $content = '';
         foreach ($saleReturn->items as $item) {
@@ -333,33 +331,25 @@ class SalesReturnController extends Controller
                     margin: 0px 0 6px 0;
                 }
                 .receipt-title {
-                    font-size: 13px;
+                    font-size: 15px;
                     font-weight: bold;
-                    margin: 6px 0 2px 0;
+                    margin: 10px 0 2px 0;
                     text-transform: uppercase;
-                }
-                .badge-return {
-                    display: inline-block;
-                    padding: 2px 6px;
-                    border: 1px solid #000;
-                    font-size: 10px;
-                    font-weight: bold;
-                    margin-bottom: 6px;
                 }
                 .invoice-no {
                     font-size: 12px;
                     font-weight: bold;
-                    margin: 0 0 6px 0;
+                    margin: 0 0 8px 0;
                 }
                 .solid-line {
                     border: none;
                     border-bottom: 1px solid #000;
-                    margin: 5px 0;
+                    margin: 6px 0;
                 }
                 .dotted-line {
                     border: none;
                     border-bottom: 2px dotted #000;
-                    margin: 5px 0;
+                    margin: 6px 0;
                 }
                 table {
                     width: 100%;
@@ -403,22 +393,18 @@ class SalesReturnController extends Controller
                         size: 80mm auto;
                         margin: 0;
                     }
+                    img {
+                        display: block;
+                        max-width: 80% !important;
+                    }
                     body {
                         width: 80mm;
                     }
                 }
             </style>
         </head>
-        <body>'
-            . ($logoBase64 ? '<div class="text-center" style="margin-bottom:6px;"><img src="' . $logoBase64 . '" style="width:120px; height:auto; display:inline-block;"></div>' : '') . '
-            <div class="text-center shop-name">TG SURGICALS</div>
-            <div class="text-center shop-sub">Surgical &amp; Medical Supplies</div>
-            <hr class="dotted-line">
-            <div class="text-center">
-                <span class="badge-return">SALES RETURN SLIP / CREDIT NOTE</span>
-            </div>
-            <div class="text-center invoice-no">Return #: ' . e($saleReturn->return_no) . '</div>
-            <hr class="solid-line">
+        <body>
+            ' . $this->getReceiptHeaderHtml('SALES RETURN SLIP / CREDIT NOTE', 'Return # ' . $saleReturn->return_no) . '
 
             <table class="meta-table">
                 <tr>

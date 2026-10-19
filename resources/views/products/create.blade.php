@@ -172,13 +172,13 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold text-dark">Code / Barcode / SKU<span class="required-star">*</span></label>
+                            <label class="form-label small fw-semibold text-dark">Code / Barcode / SKU <span class="text-muted fw-normal small">(Optional)</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-upc-scan"></i></span>
                                 <input type="text" name="code" maxlength="100"
                                        class="form-control @error('code') is-invalid-field @enderror"
-                                       placeholder="e.g. SF-14001"
-                                       value="{{ old('code') }}" required>
+                                       placeholder="e.g. SF-14001 (optional)"
+                                       value="{{ old('code') }}">
                             </div>
                             @error('code')
                                 <div class="field-error">{{ $message }}</div>

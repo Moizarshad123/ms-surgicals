@@ -69,4 +69,23 @@ class Sale extends Model
     {
         return (float) $this->returns()->sum('total_amount');
     }
+
+    public function getTotalQuantityAttribute(): int
+    {
+        return (int) $this->items->sum('quantity');
+    }
+
+    public function getReturnedQuantityAttribute(): int
+    {
+        return (int) $this->items->sum(function ($item) {
+            return $item->relationLoaded('returnItems')
+                ? $item->returnItems->sum('quantity')
+                : $item->returned_quantity;
+        });
+    }
+
+    public function getNetQuantityAttribute(): int
+    {
+        return max(0, $this->total_quantity - $this->returned_quantity);
+    }
 }

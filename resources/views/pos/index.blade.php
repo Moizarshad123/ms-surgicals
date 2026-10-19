@@ -732,7 +732,7 @@
                         <input type="text" id="modalCustomerName" list="customersDatalist" class="form-control" placeholder="Walk-in Customer" oninput="onCustomerInput()" autocomplete="off">
                         <datalist id="customersDatalist">
                             @foreach($customers as $c)
-                                <option value="{{ $c->name }}" data-phone="{{ $c->phone }}" data-id="{{ $c->id }}">
+                                <option value="{{ data_get($c, 'name') }}" data-phone="{{ data_get($c, 'phone') }}" data-id="{{ data_get($c, 'id') }}">
                             @endforeach
                         </datalist>
                     </div>
@@ -1206,6 +1206,7 @@
         const inputName = document.getElementById('modalCustomerName').value.trim();
         const alertBox = document.getElementById('customerExistingAlert');
         const phoneInput = document.getElementById('modalCustomerPhone');
+        const dueBadge = document.getElementById('custPrevDueBadge');
 
         const matched = existingCustomers.find(c => c.name.toLowerCase() === inputName.toLowerCase());
         if (matched) {
@@ -1214,6 +1215,16 @@
                 phoneInput.value = matched.phone;
             }
             alertBox.classList.remove('d-none');
+            const prevDue = parseFloat(matched.total_due) || 0;
+            if (dueBadge) {
+                if (prevDue > 0) {
+                    dueBadge.innerText = 'Prev Due: Rs. ' + prevDue.toLocaleString();
+                    dueBadge.className = 'fw-bold text-danger';
+                } else {
+                    dueBadge.innerText = 'No Previous Due';
+                    dueBadge.className = 'fw-bold text-success';
+                }
+            }
         } else {
             matchedCustomerId = null;
             alertBox.classList.add('d-none');

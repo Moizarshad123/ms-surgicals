@@ -229,8 +229,13 @@
         <div class="card kpi-card">
             <div class="card-body d-flex align-items-center justify-content-between p-3">
                 <div>
-                    <div class="text-muted small fw-semibold">Units Sold</div>
+                    <div class="text-muted small fw-semibold">Units Sold (Net)</div>
                     <h4 class="fw-bold text-dark mt-1 mb-0">{{ number_format($totalItems) }}</h4>
+                    @if(isset($totalReturnedUnits) && $totalReturnedUnits > 0)
+                        <div class="small mt-1 text-muted" style="font-size: 0.73rem;">
+                            <span class="text-danger fw-semibold">-{{ number_format($totalReturnedUnits) }} returned</span>
+                        </div>
+                    @endif
                 </div>
                 <div class="kpi-icon" style="background: rgba(108,92,231,0.1); color: #6c5ce7;">
                     <i class="bi bi-box-seam"></i>
@@ -305,6 +310,11 @@
                                 <span class="badge bg-light text-dark font-monospace border px-2 py-1">
                                     <i class="bi bi-hash text-muted"></i>{{ $sale->invoice_no }}
                                 </span>
+                                @if($sale->returns && $sale->returns->count() > 0)
+                                    <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 px-1 py-0 small d-block mt-1" style="width: fit-content;" title="This sale has items returned">
+                                        <i class="bi bi-arrow-counterclockwise text-warning"></i> Returned
+                                    </span>
+                                @endif
                             </td>
                             <td>
                                 <div class="fw-semibold text-dark">{{ $sale->customer->name ?? 'Walk-in Customer' }}</div>
@@ -347,6 +357,9 @@
                                     <a href="{{ route('sales-returns.create', ['sale_id' => $sale->id]) }}" class="btn btn-outline-warning py-1 px-2" title="Process Sales Return">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </a>
+                                    <button type="button" class="btn btn-outline-danger py-1 px-2" onclick="confirmDeleteSale({{ $sale->id }}, '{{ $sale->invoice_no }}')" title="Delete Sale & Restore Stock">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -420,5 +433,30 @@
             }
         });
     });
+
+    function confirmDeleteSale(saleId, invoiceNo) {
+        if (!confirm(`Are you sure you want to delete Sale ${invoiceNo}?\n\nThis will permanently delete this sale and restore the sold quantities back to product inventory.`)) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/sales/${saleId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
 </script>
 @endpush

@@ -93,7 +93,7 @@ class ProductController extends Controller
 
         return [
             'name'            => ['required', 'string', 'max:255'],
-            'code'            => ['required', 'string', 'max:100', $codeUniqueRule],
+            'code'            => ['nullable', 'string', 'max:100', $codeUniqueRule],
             'category_id'     => ['required', 'exists:categories,id'],
             'purchase_price'  => ['required', 'numeric', 'min:1', 'max:99999'],
             'sale_price'      => ['required', 'numeric', 'min:1', 'max:99999'],
@@ -106,6 +106,8 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->rules());
+
+        $validated['code'] = !empty($validated['code']) ? trim($validated['code']) : null;
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
@@ -126,6 +128,8 @@ class ProductController extends Controller
     public function update(Request $request, Product $product)
     {
         $validated = $request->validate($this->rules($product));
+
+        $validated['code'] = !empty($validated['code']) ? trim($validated['code']) : null;
 
         if ($request->hasFile('image')) {
             // Remove previous image from storage if present

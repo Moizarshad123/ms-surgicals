@@ -282,9 +282,14 @@
                                         <span class="text-muted small">{{ $sale->created_at->setTimezone('Asia/Karachi')->format('d M, h:i A') }}</span>
                                     </td>
                                     <td class="text-center">
-                                        <a target="_blank" href="{{ route('pos.invoice', $sale->id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Print Invoice Receipt">
-                                            <i class="bi bi-printer"></i>
-                                        </a>
+                                        <div class="btn-group btn-group-sm">
+                                            <a target="_blank" href="{{ route('pos.invoice', $sale->id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Print Invoice Receipt">
+                                                <i class="bi bi-printer"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="confirmDeleteSale({{ $sale->id }}, '{{ $sale->invoice_no }}')" title="Delete Sale & Restore Stock">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
@@ -588,5 +593,30 @@
             }
         }
     });
+
+    function confirmDeleteSale(saleId, invoiceNo) {
+        if (!confirm(`Are you sure you want to delete Sale ${invoiceNo}?\n\nThis will permanently delete this sale and restore the sold quantities back to product inventory.`)) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/sales/${saleId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
 </script>
 @endpush

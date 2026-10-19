@@ -227,9 +227,17 @@ class CreditSaleController extends Controller
      */
     public function printReceipt(Sale $sale)
     {
-        $sale->load(['items.product', 'customer', 'payments.user']);
+        $sale->load(['items.product', 'customer']);
 
-        $balance = $sale->total - $sale->paid_amount;
+        // Previous balance of the customer from all earlier sales (NOT added to current invoice)
+        $previousBalance = 0;
+        if ($sale->customer_id) {
+            $previousBalance = (float) Sale::where('customer_id', $sale->customer_id)
+                ->where('id', '<', $sale->id)
+                ->whereRaw('total > paid_amount')
+                ->sum(DB::raw('total - paid_amount'));
+            $previousBalance = max(0, $previousBalance);
+        }
 
         // Build item rows
         $itemRows = '';
@@ -238,21 +246,8 @@ class CreditSaleController extends Controller
                             <td style="text-align:left;">' . e($item->product->name ?? 'Item') . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
                             <td>' . number_format($item->price) . '</td>
-                            <td>' . number_format($item->total) . '</td>
+                            <td style="text-align:right;">' . number_format($item->total) . '</td>
                         </tr>';
-        }
-
-        // Build installment payments rows
-        $paymentRows = '';
-        $runningTotalPaid = 0;
-        foreach ($sale->payments as $index => $payment) {
-            $runningTotalPaid += $payment->amount;
-            $remAfter = max(0, $sale->total - $runningTotalPaid);
-            $paymentRows .= '<tr>
-                                <td>' . ($index + 1) . '. ' . $payment->payment_date->format('d/m/Y') . '</td>
-                                <td>' . e($payment->note ?: ucfirst($payment->payment_method)) . '</td>
-                                <td style="text-align:right;">Rs. ' . number_format($payment->amount) . '</td>
-                            </tr>';
         }
 
         $htmlContent = '
@@ -268,43 +263,15 @@ class CreditSaleController extends Controller
                     color: #000;
                 }
                 .text-center { text-align: center; }
-                .shop-name {
-                    font-size: 16px;
-                    font-weight: bold;
-                    margin: 0;
-                }
-                .shop-sub {
-                    font-size: 11px;
-                    margin: 0px 0 6px 0;
-                }
-                .receipt-title {
-                    font-size: 14px;
-                    font-weight: bold;
-                    margin: 6px 0 2px 0;
-                    text-transform: uppercase;
-                }
-                .badge-credit {
-                    display: inline-block;
-                    padding: 2px 6px;
-                    border: 1px solid #000;
-                    font-size: 10px;
-                    font-weight: bold;
-                    margin-bottom: 6px;
-                }
-                .invoice-no {
-                    font-size: 12px;
-                    font-weight: bold;
-                    margin: 0 0 6px 0;
-                }
                 .solid-line {
                     border: none;
                     border-bottom: 1px solid #000;
-                    margin: 5px 0;
+                    margin: 6px 0;
                 }
                 .dotted-line {
                     border: none;
                     border-bottom: 2px dotted #000;
-                    margin: 5px 0;
+                    margin: 6px 0;
                 }
                 table {
                     width: 100%;
@@ -322,7 +289,7 @@ class CreditSaleController extends Controller
                     font-weight: bold;
                     width: 75px;
                 }
-                .items-table thead th, .payments-table thead th {
+                .items-table thead th {
                     border-bottom: 1px solid #000;
                     font-size: 10px;
                     text-align: left;
@@ -338,11 +305,10 @@ class CreditSaleController extends Controller
                     font-weight: bold;
                     padding-top: 4px;
                 }
-                .due-row td {
-                    font-size: 14px;
+                .prev-row td {
+                    font-size: 12px;
                     font-weight: bold;
-                    padding-top: 4px;
-                    color: #000;
+                    padding-top: 3px;
                 }
                 .section-heading {
                     font-size: 11px;
@@ -360,6 +326,10 @@ class CreditSaleController extends Controller
                         size: 80mm auto;
                         margin: 0;
                     }
+                    img {
+                        display: block;
+                        max-width: 80% !important;
+                    }
                     body {
                         width: 80mm;
                     }
@@ -367,23 +337,12 @@ class CreditSaleController extends Controller
             </style>
         </head>
         <body>
-            <div class="text-center">
-                <p class="shop-name">TG SURGICALS</p>
-                <p class="shop-sub">
-                    Shop 58, Mirwah Road TandoAllahyar<br>
-                    Phone # 0334-2830393
-                </p>
-                <div class="badge-credit">CREDIT / INSTALLMENT STATEMENT</div>
-                <p class="invoice-no">Invoice # ' . $sale->invoice_no . '</p>
-            </div>
-
-            <hr class="solid-line">
+            ' . $this->getReceiptHeaderHtml('', 'Invoice # ' . $sale->invoice_no) . '
 
             <table class="meta-table">
                 <tr><td class="label">Date:</td><td>' . $sale->created_at->format('d-m-Y h:i A') . '</td></tr>
                 <tr><td class="label">Customer:</td><td>' . e($sale->customer->name ?? 'Walk-in Customer') . '</td></tr>
                 <tr><td class="label">Phone:</td><td>' . e($sale->customer->phone ?? '-') . '</td></tr>
-                <tr><td class="label">Due Date:</td><td><strong>' . ($sale->due_date ? $sale->due_date->format('d-m-Y') : 'Within 1 Month') . '</strong></td></tr>
                 <tr><td class="label">Status:</td><td><strong>' . strtoupper($sale->payment_status) . '</strong></td></tr>
             </table>
 
@@ -413,47 +372,28 @@ class CreditSaleController extends Controller
                 </tr>
                 <tr>
                     <td>Discount:</td>
-                    <td class="amt">' . ($sale->discount > 0 ? '- Rs. ' . number_format($sale->discount) : 'Rs. 0.0') . '</td>
+                    <td class="amt">' . ($sale->discount > 0 ? '- Rs. ' . number_format($sale->discount) : 'Rs. 0') . '</td>
                 </tr>
                 <tr class="grand-row">
-                    <td>Grand Total:</td>
+                    <td>Inv Total Amount:</td>
                     <td class="amt">Rs. ' . number_format($sale->total) . '</td>
                 </tr>
             </table>
 
+            ' . ($sale->customer_id ? '
             <hr class="solid-line">
 
-            <div class="section-heading">INSTALLMENTS / PAYMENT HISTORY:</div>
-            <table class="payments-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Note / Method</th>
-                        <th style="text-align:right;">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ' . ($paymentRows ?: '<tr><td colspan="3" style="text-align:center;">No payments recorded yet</td></tr>') . '
-                </tbody>
-            </table>
-
-            <hr class="dotted-line">
-
             <table class="totals-table">
-                <tr>
-                    <td>Total Paid to Date:</td>
-                    <td class="amt" style="font-weight:bold;">Rs. ' . number_format($sale->paid_amount) . '</td>
-                </tr>
-                <tr class="due-row">
-                    <td>REMAINING BALANCE:</td>
-                    <td class="amt">Rs. ' . number_format(max(0, $balance)) . '</td>
+                <tr class="prev-row">
+                    <td>Previous Balance:</td>
+                    <td class="amt">Rs. ' . number_format($previousBalance) . '</td>
                 </tr>
             </table>
+            ' : '') . '
 
             ' . ($sale->notes ? '<p style="font-size:10px; margin-top:5px;"><strong>Notes:</strong> ' . e($sale->notes) . '</p>' : '') . '
 
             <p class="thank-you">
-                Please clear remaining balance by ' . ($sale->due_date ? $sale->due_date->format('d-m-Y') : 'due date') . '.<br>
                 Thank you for your business!
             </p>
         </body>
@@ -461,7 +401,7 @@ class CreditSaleController extends Controller
 
         $pdf = Pdf::loadHTML($htmlContent)->setPaper([0, 0, 226.77, 841.89], 'portrait');
 
-        return $pdf->stream('installment-statement-' . $sale->invoice_no . '.pdf');
+        return $pdf->stream('invoice-' . $sale->invoice_no . '.pdf');
     }
 }
 
