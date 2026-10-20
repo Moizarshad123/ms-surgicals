@@ -324,6 +324,9 @@
                                             data-items='@json($itemsPayload)'>
                                         <i class="bi bi-eye me-1"></i> View
                                     </button>
+                                    <a href="{{ route('purchases.edit', $purchase->id) }}" class="btn btn-outline-info py-1 px-2" title="Edit Purchase">
+                                        <i class="bi bi-pencil-square"></i> Edit
+                                    </a>
                                     <a href="{{ route('purchase-returns.create', ['purchase_id' => $purchase->id]) }}" class="btn btn-outline-warning py-1 px-2" title="Return to Supplier">
                                         <i class="bi bi-arrow-return-left"></i> Return
                                     </a>

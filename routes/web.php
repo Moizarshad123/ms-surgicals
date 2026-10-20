@@ -34,6 +34,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/pos/products/{product}/update-price', [PosController::class, 'updateProductPrice'])->name('pos.products.update_price');
     Route::get('/pos/invoice/{sale}', [PosController::class, 'invoice'])->name('pos.invoice');
     Route::get('/pos/customers/search', [PosController::class, 'searchCustomers'])->name('pos.customers.search');
+    Route::get('/sales/{sale}/edit', [PosController::class, 'edit'])->name('sales.edit');
+    Route::put('/sales/{sale}', [PosController::class, 'update'])->name('sales.update');
     Route::delete('/sales/{sale}', [PosController::class, 'destroy'])->name('sales.destroy');
 
     // Credit Sales & Installments
@@ -65,6 +67,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/purchases', [PurchaseController::class, 'index'])->name('purchases.index');
     Route::get('/purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
     Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
+    Route::get('/purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
+    Route::put('/purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
     Route::delete('/purchases/{purchase}', [PurchaseController::class, 'destroy'])->name('purchases.destroy');
 
     // Purchase Returns

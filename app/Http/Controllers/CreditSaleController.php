@@ -243,8 +243,8 @@ class CreditSaleController extends Controller
         $itemRows = '';
         foreach ($sale->items as $item) {
             $itemRows .= '<tr>
-                            <td style="text-align:left;">' . e($item->product->name ?? 'Item') . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
+                            <td style="text-align:left;">' . e($item->product->name ?? 'Item') . '</td>
                             <td>' . number_format($item->price) . '</td>
                             <td style="text-align:right;">' . number_format($item->total) . '</td>
                         </tr>';
@@ -352,8 +352,8 @@ class CreditSaleController extends Controller
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="text-align:left;">Item</th>
                         <th style="text-align:center;">Qty</th>
+                        <th style="text-align:left;">Item</th>
                         <th>Price</th>
                         <th style="text-align:right;">Total</th>
                     </tr>
@@ -378,6 +378,14 @@ class CreditSaleController extends Controller
                     <td>Inv Total Amount:</td>
                     <td class="amt">Rs. ' . number_format($sale->total) . '</td>
                 </tr>
+                <tr>
+                    <td>Paid Amount:</td>
+                    <td class="amt" style="font-weight:bold;">Rs. ' . number_format($sale->paid_amount) . '</td>
+                </tr>
+                <tr>
+                    <td>Remaining Due:</td>
+                    <td class="amt" style="font-weight:bold;">Rs. ' . number_format($sale->due_amount) . '</td>
+                </tr>
             </table>
 
             ' . ($sale->customer_id ? '
@@ -390,9 +398,7 @@ class CreditSaleController extends Controller
                 </tr>
             </table>
             ' : '') . '
-
             ' . ($sale->notes ? '<p style="font-size:10px; margin-top:5px;"><strong>Notes:</strong> ' . e($sale->notes) . '</p>' : '') . '
-
             <p class="thank-you">
                 Thank you for your business!
             </p>
@@ -400,7 +406,6 @@ class CreditSaleController extends Controller
         </html>';
 
         $pdf = Pdf::loadHTML($htmlContent)->setPaper([0, 0, 226.77, 841.89], 'portrait');
-
         return $pdf->stream('invoice-' . $sale->invoice_no . '.pdf');
     }
 }

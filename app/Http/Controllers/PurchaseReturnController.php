@@ -256,8 +256,8 @@ class PurchaseReturnController extends Controller
         $content = '';
         foreach ($purchaseReturn->items as $item) {
             $content .= '<tr>
-                            <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
+                            <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td style="text-align:right;">' . number_format($item->price) . '</td>
                             <td style="text-align:right;">' . number_format($item->total) . '</td>
                         </tr>';
@@ -386,8 +386,8 @@ class PurchaseReturnController extends Controller
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="text-align:left;">Item</th>
                         <th style="text-align:center;">Qty</th>
+                        <th style="text-align:left;">Item</th>
                         <th style="text-align:right;">Price</th>
                         <th style="text-align:right;">Total</th>
                     </tr>

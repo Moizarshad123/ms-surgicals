@@ -283,6 +283,9 @@
                                     </td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
+                                            <a href="{{ route('sales.edit', $sale->id) }}" class="btn btn-sm btn-outline-info py-0 px-2" title="Edit Order">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
                                             <a target="_blank" href="{{ route('pos.invoice', $sale->id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Print Invoice Receipt">
                                                 <i class="bi bi-printer"></i>
                                             </a>

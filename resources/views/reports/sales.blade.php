@@ -304,7 +304,19 @@
                 </thead>
                 <tbody id="salesTableBody">
                     @forelse ($sales as $sale)
-                        @php $due = $sale->due_amount; @endphp
+                        @php
+                            $due = $sale->due_amount;
+                            $itemsPayload = $sale->items->map(function ($it) {
+                                return [
+                                    'product' => $it->product->name ?? 'Item',
+                                    'code' => $it->product->code ?? '',
+                                    'quantity' => $it->quantity,
+                                    'price' => (float) $it->price,
+                                    'total' => (float) $it->total,
+                                    'returned' => (int) ($it->returnItems ? $it->returnItems->sum('quantity') : 0),
+                                ];
+                            });
+                        @endphp
                         <tr class="sale-row" data-search="{{ strtolower($sale->invoice_no . ' ' . ($sale->customer->name ?? '') . ' ' . ($sale->customer->phone ?? '') . ' ' . $sale->created_at->format('d M Y')) }}">
                             <td>
                                 <span class="badge bg-light text-dark font-monospace border px-2 py-1">
@@ -346,6 +358,24 @@
                             </td>
                             <td class="text-center print-hide">
                                 <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-info py-1 px-2 btn-view-sale"
+                                            data-invoice="{{ $sale->invoice_no }}"
+                                            data-customer="{{ $sale->customer->name ?? 'Walk-in Customer' }}"
+                                            data-phone="{{ $sale->customer->phone ?? '—' }}"
+                                            data-date="{{ $sale->created_at->format('d M, Y h:i A') }}"
+                                            data-subtotal="Rs. {{ number_format($sale->sub_total) }}"
+                                            data-discount="Rs. {{ number_format($sale->discount) }}"
+                                            data-total="Rs. {{ number_format($sale->total) }}"
+                                            data-paid="Rs. {{ number_format($sale->paid_amount) }}"
+                                            data-due="Rs. {{ number_format($due) }}"
+                                            data-status="{{ ucfirst($sale->payment_status) }}"
+                                            data-items='@json($itemsPayload)'
+                                            title="View Sold Products">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <a href="{{ route('sales.edit', $sale->id) }}" class="btn btn-outline-primary py-1 px-2" title="Edit Order">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
                                     <a target="_blank" href="{{ route('pos.invoice', $sale->id) }}" class="btn btn-outline-secondary py-1 px-2" title="Print Invoice">
                                         <i class="bi bi-printer"></i>
                                     </a>
@@ -394,6 +424,85 @@
         </div>
     </div>
 </div>
+
+<!-- SALE DETAILS MODAL -->
+<div class="modal fade" id="saleDetailModal" tabindex="-1" aria-labelledby="saleDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px;">
+            <div class="modal-header border-bottom py-3 px-4" style="background:#fafbfc; border-radius: 12px 12px 0 0;">
+                <div>
+                    <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="saleDetailModalLabel">
+                        <i class="bi bi-receipt text-primary"></i> Sale Order Details
+                    </h6>
+                    <div class="text-muted small mt-1" id="mSaleInvoice">INV-</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Meta Summary Row -->
+                <div class="row g-2 mb-3">
+                    <div class="col-sm-3 col-6">
+                        <div class="p-2 bg-light rounded-3 border">
+                            <small class="text-muted d-block">Customer</small>
+                            <span class="fw-semibold text-dark" id="mSaleCustomer">-</span>
+                            <div class="text-muted small" id="mSalePhone" style="font-size: 0.75rem;">-</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-6">
+                        <div class="p-2 bg-light rounded-3 border">
+                            <small class="text-muted d-block">Sale Date</small>
+                            <span class="fw-semibold text-dark" id="mSaleDate">-</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-6">
+                        <div class="p-2 bg-light rounded-3 border">
+                            <small class="text-muted d-block">Total Bill</small>
+                            <span class="fw-bold text-dark" id="mSaleTotal">-</span>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-6">
+                        <div class="p-2 bg-light rounded-3 border">
+                            <small class="text-muted d-block">Status / Remaining</small>
+                            <span class="badge" id="mSaleStatusBadge">-</span>
+                            <span class="fw-bold small ms-1" id="mSaleDue">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-dark mb-2">Sold Products Breakdown</h6>
+                <div class="table-responsive border rounded-3 mb-3">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>#</th>
+                                <th>Product Name</th>
+                                <th>SKU / Code</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-center">Quantity</th>
+                                <th class="text-center">Returned</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mSaleItemsBody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals footer breakdown -->
+                <div class="p-3 bg-light rounded-3 border d-flex justify-content-between flex-wrap gap-2 text-dark small">
+                    <div>Subtotal: <strong id="mSaleSubTotal">-</strong></div>
+                    <div>Discount: <strong class="text-danger" id="mSaleDiscount">-</strong></div>
+                    <div>Grand Total: <strong class="text-success" id="mSaleGrandTotal">-</strong></div>
+                    <div>Paid: <strong class="text-primary" id="mSalePaid">-</strong></div>
+                    <div>Net Due: <strong class="text-danger" id="mSaleNetDue">-</strong></div>
+                </div>
+            </div>
+            <div class="modal-footer border-top py-2 px-4" style="background:#fafbfc; border-radius: 0 0 12px 12px;">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -431,6 +540,64 @@
             } else {
                 $('#noSearchMatch').addClass('d-none');
             }
+        });
+
+        // View Sale details modal
+        $('.btn-view-sale').on('click', function () {
+            const invoice = $(this).data('invoice');
+            const customer = $(this).data('customer');
+            const phone = $(this).data('phone');
+            const date = $(this).data('date');
+            const subtotal = $(this).data('subtotal');
+            const discount = $(this).data('discount');
+            const total = $(this).data('total');
+            const paid = $(this).data('paid');
+            const due = $(this).data('due');
+            const status = $(this).data('status');
+            const items = $(this).data('items') || [];
+
+            $('#mSaleInvoice').text('Invoice # ' + invoice);
+            $('#mSaleCustomer').text(customer);
+            $('#mSalePhone').text(phone);
+            $('#mSaleDate').text(date);
+            $('#mSaleTotal').text(total);
+            $('#mSaleSubTotal').text(subtotal);
+            $('#mSaleDiscount').text(discount);
+            $('#mSaleGrandTotal').text(total);
+            $('#mSalePaid').text(paid);
+            $('#mSaleNetDue').text(due);
+            $('#mSaleDue').text(due);
+
+            const badge = $('#mSaleStatusBadge');
+            badge.text(status);
+            badge.removeClass('bg-success bg-warning bg-danger text-dark text-white');
+            if (status.toLowerCase() === 'paid') {
+                badge.addClass('bg-success text-white');
+            } else if (status.toLowerCase() === 'partial') {
+                badge.addClass('bg-warning text-dark');
+            } else {
+                badge.addClass('bg-danger text-white');
+            }
+
+            let rows = '';
+            items.forEach((item, index) => {
+                rows += `
+                    <tr>
+                        <td class="text-muted small">${index + 1}</td>
+                        <td class="fw-semibold text-dark">${item.product}</td>
+                        <td><span class="badge bg-light text-dark border font-monospace">${item.code || '—'}</span></td>
+                        <td class="text-end">Rs. ${parseFloat(item.price).toLocaleString()}</td>
+                        <td class="text-center"><span class="badge bg-secondary-subtle text-dark border px-2">${item.quantity}</span></td>
+                        <td class="text-center">${item.returned > 0 ? '<span class="badge bg-warning-subtle text-warning border px-2">-' + item.returned + '</span>' : '<span class="text-muted">—</span>'}</td>
+                        <td class="text-end fw-bold text-dark">Rs. ${parseFloat(item.total).toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+
+            $('#mSaleItemsBody').html(rows);
+
+            const modal = new bootstrap.Modal(document.getElementById('saleDetailModal'));
+            modal.show();
         });
     });
 

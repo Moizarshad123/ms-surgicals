@@ -219,6 +219,13 @@ class SalesReturnController extends Controller
                 // Increment product stock
                 Product::where('id', $prep['sale_item']->product_id)
                     ->increment('stock', $prep['quantity']);
+
+                // Deduct returned quantity from the original sale item
+                $newQty = max(0, $prep['sale_item']->quantity - $prep['quantity']);
+                $prep['sale_item']->update([
+                    'quantity' => $newQty,
+                    'total' => $newQty * $prep['sale_item']->price,
+                ]);
             }
 
             // Adjust the Sale
@@ -301,8 +308,8 @@ class SalesReturnController extends Controller
         $content = '';
         foreach ($saleReturn->items as $item) {
             $content .= '<tr>
-                            <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
+                            <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td style="text-align:right;">' . number_format($item->price) . '</td>
                             <td style="text-align:right;">' . number_format($item->total) . '</td>
                         </tr>';
@@ -435,8 +442,8 @@ class SalesReturnController extends Controller
             <table class="items-table">
                 <thead>
                     <tr>
+                    <th style="text-align:center;">Qty</th>
                         <th style="text-align:left;">Item</th>
-                        <th style="text-align:center;">Qty</th>
                         <th style="text-align:right;">Price</th>
                         <th style="text-align:right;">Total</th>
                     </tr>
@@ -485,9 +492,20 @@ class SalesReturnController extends Controller
     public function destroy(SaleReturn $saleReturn)
     {
         DB::transaction(function () use ($saleReturn) {
-            // 1. Revert product stock: sales return had restocked them, so we decrement them back
+            // 1. Revert product stock & restore original sale item quantity
             foreach ($saleReturn->items as $item) {
                 Product::where('id', $item->product_id)->decrement('stock', $item->quantity);
+
+                if ($item->sale_item_id) {
+                    $saleItem = SaleItem::find($item->sale_item_id);
+                    if ($saleItem) {
+                        $restoredQty = $saleItem->quantity + $item->quantity;
+                        $saleItem->update([
+                            'quantity' => $restoredQty,
+                            'total' => $restoredQty * $saleItem->price,
+                        ]);
+                    }
+                }
             }
 
             // 2. Revert the original Sale record (if sale still exists)

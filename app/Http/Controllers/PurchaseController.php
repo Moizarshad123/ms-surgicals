@@ -77,6 +77,62 @@ class PurchaseController extends Controller
         return redirect()->route('purchases.index')->with('success', 'Purchase recorded and stock updated.');
     }
 
+    public function edit(Purchase $purchase)
+    {
+        $purchase->load(['items.product']);
+        $products = Product::orderBy('name')->get();
+
+        return view('purchases.edit', compact('purchase', 'products'));
+    }
+
+    public function update(Request $request, Purchase $purchase)
+    {
+        $validated = $request->validate([
+            'supplier_name' => ['nullable', 'string', 'max:255'],
+            'purchase_date' => ['required', 'date'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        DB::transaction(function () use ($validated, $purchase) {
+            // 1. Revert previous purchase items from stock
+            foreach ($purchase->items as $oldItem) {
+                Product::where('id', $oldItem->product_id)->decrement('stock', $oldItem->quantity);
+            }
+
+            // 2. Delete old items
+            $purchase->items()->delete();
+
+            // 3. Insert updated items and increment stock
+            $total = 0;
+            foreach ($validated['items'] as $item) {
+                $lineTotal = $item['quantity'] * $item['price'];
+                $total += $lineTotal;
+
+                PurchaseItem::create([
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'total' => $lineTotal,
+                ]);
+
+                Product::where('id', $item['product_id'])->increment('stock', $item['quantity']);
+            }
+
+            // 4. Update purchase header
+            $purchase->update([
+                'supplier_name' => $validated['supplier_name'] ?? null,
+                'purchase_date' => $validated['purchase_date'],
+                'total' => $total,
+            ]);
+        });
+
+        return redirect()->route('purchases.index')->with('success', 'Purchase updated and inventory adjusted successfully.');
+    }
+
     public function destroy(Purchase $purchase)
     {
         if ($purchase->returns()->exists()) {

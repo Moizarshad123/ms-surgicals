@@ -283,6 +283,12 @@
                                             <i class="bi bi-clock-history"></i>
                                         </button>
 
+                                        <!-- Edit Order Button -->
+                                        <a href="{{ route('sales.edit', $sale->id) }}" 
+                                           class="btn btn-outline-info" title="Edit Order">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+
                                         <!-- Print Statement Button -->
                                         <a href="{{ route('credit-sales.receipt', $sale->id) }}" target="_blank" 
                                            class="btn btn-outline-secondary" title="Print Installment Statement">

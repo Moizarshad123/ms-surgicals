@@ -33,6 +33,6 @@ class SaleItem extends Model
 
     public function getAvailableReturnQuantityAttribute(): int
     {
-        return max(0, (int) $this->quantity - $this->returned_quantity);
+        return max(0, (int) $this->quantity);
     }
 }

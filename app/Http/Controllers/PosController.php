@@ -208,6 +208,147 @@ class PosController extends Controller
     }
 
     /**
+     * Show the edit form for an existing sale order.
+     */
+    public function edit(Sale $sale)
+    {
+        $sale->load(['items.product', 'customer', 'payments']);
+        $products = Product::orderBy('name')->get();
+        $customers = Customer::orderBy('name')->get();
+
+        return view('sales.edit', compact('sale', 'products', 'customers'));
+    }
+
+    /**
+     * Update an existing sale order and re-adjust inventory.
+     */
+    public function update(Request $request, Sale $sale)
+    {
+        $validated = $request->validate([
+            'customer_id' => ['nullable', 'exists:customers,id'],
+            'customer_name' => ['nullable', 'string', 'max:255'],
+            'customer_phone' => ['nullable', 'string', 'max:30'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        DB::transaction(function () use ($validated, $sale) {
+            // 1. Resolve customer
+            $customer = null;
+            if (!empty($validated['customer_id'])) {
+                $customer = Customer::find($validated['customer_id']);
+            } elseif (!empty($validated['customer_phone'])) {
+                $customer = Customer::firstOrCreate(
+                    ['phone' => $validated['customer_phone']],
+                    ['name' => !empty($validated['customer_name']) ? $validated['customer_name'] : 'Walk-in Customer']
+                );
+                if (!empty($validated['customer_name']) && $customer->name === 'Walk-in Customer') {
+                    $customer->update(['name' => $validated['customer_name']]);
+                }
+            } elseif (!empty($validated['customer_name']) && $validated['customer_name'] !== 'Walk-in Customer') {
+                $customer = Customer::create([
+                    'name' => $validated['customer_name'],
+                    'phone' => null,
+                ]);
+            }
+
+            // 2. Revert previous stock deduction from existing sale items
+            foreach ($sale->items as $oldItem) {
+                Product::where('id', $oldItem->product_id)->increment('stock', $oldItem->quantity);
+            }
+
+            // 3. Process new items and deduct stock
+            $subTotal = 0;
+            $lineItems = [];
+
+            foreach ($validated['items'] as $item) {
+                $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+
+                if ($product->stock < $item['quantity']) {
+                    abort(422, "Insufficient stock for {$product->name}. Current in-hand stock: {$product->stock}");
+                }
+
+                $product->decrement('stock', $item['quantity']);
+
+                $unitPrice = (float) $item['price'];
+                $lineTotal = $unitPrice * (int) $item['quantity'];
+                $subTotal += $lineTotal;
+
+                $lineItems[] = [
+                    'product_id' => $product->id,
+                    'quantity' => (int) $item['quantity'],
+                    'price' => $unitPrice,
+                    'total' => $lineTotal,
+                ];
+            }
+
+            // Delete old items and insert updated items
+            $sale->items()->delete();
+            foreach ($lineItems as $line) {
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $line['product_id'],
+                    'quantity' => $line['quantity'],
+                    'price' => $line['price'],
+                    'total' => $line['total'],
+                ]);
+            }
+
+            // 4. Calculate totals and payment status
+            $discount = isset($validated['discount']) ? (float) $validated['discount'] : 0;
+            $total = max(0, $subTotal - $discount);
+
+            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : (float) $sale->paid_amount;
+            $paidAmount = min($paidInput, $total);
+
+            if ($paidAmount >= $total) {
+                $paymentStatus = 'paid';
+                $dueDate = null;
+            } elseif ($paidAmount > 0) {
+                $paymentStatus = 'partial';
+                $dueDate = $validated['due_date'] ?? null;
+            } else {
+                $paymentStatus = 'due';
+                $dueDate = $validated['due_date'] ?? null;
+            }
+
+            $sale->update([
+                'customer_id' => $customer?->id ?? $sale->customer_id,
+                'sub_total' => $subTotal,
+                'discount' => $discount,
+                'total' => $total,
+                'paid_amount' => $paidAmount,
+                'due_date' => $dueDate,
+                'payment_status' => $paymentStatus,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            // Sync payment record
+            $firstPayment = $sale->payments()->first();
+            if ($firstPayment) {
+                $firstPayment->update(['amount' => $paidAmount]);
+            } elseif ($paidAmount > 0) {
+                SalePayment::create([
+                    'sale_id' => $sale->id,
+                    'amount' => $paidAmount,
+                    'payment_date' => now()->toDateString(),
+                    'payment_method' => 'cash',
+                    'note' => $paidAmount < $total ? 'Advance / Down Payment' : 'Full Payment',
+                    'user_id' => auth()->id(),
+                ]);
+            }
+        });
+
+        return redirect()->route('reports.sales')->with('success', "Order #{$sale->invoice_no} updated successfully.");
+    }
+
+    /**
      * Stream the sale as an 80mm thermal-receipt PDF.
      * Clean layout: no negative margins, everything fits inside the page box.
      */
@@ -231,9 +372,12 @@ class PosController extends Controller
 
         $content = '';
         foreach ($sale->items as $item) {
+            if ($item->quantity <= 0) {
+                continue;
+            }
             $content .= '<tr>
-                            <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td style="text-align:center;">' . $item->quantity . '</td>
+                            <td style="text-align:left;">' . e($item->product->name) . '</td>
                             <td>' . number_format($item->price) . '</td>
                             <td>' . number_format($item->total) . '</td>
                         </tr>';
@@ -350,8 +494,8 @@ class PosController extends Controller
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="text-align:left;">Item</th>
                         <th style="text-align:center;">Qty</th>
+                        <th style="text-align:left;">Item</th>
                         <th>Price</th>
                         <th>Total</th>
                     </tr>
