@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function () {
     // POS
     Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
     Route::post('/pos', [PosController::class, 'store'])->name('pos.store');
+    Route::post('/pos/products/{product}/update-price', [PosController::class, 'updateProductPrice'])->name('pos.products.update_price');
     Route::get('/pos/invoice/{sale}', [PosController::class, 'invoice'])->name('pos.invoice');
     Route::get('/pos/customers/search', [PosController::class, 'searchCustomers'])->name('pos.customers.search');
     Route::delete('/sales/{sale}', [PosController::class, 'destroy'])->name('sales.destroy');
@@ -49,6 +50,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/sales-returns/search-sale', [SalesReturnController::class, 'searchSale'])->name('sales-returns.search-sale');
     Route::get('/sales-returns/{saleReturn}', [SalesReturnController::class, 'show'])->name('sales-returns.show');
     Route::get('/sales-returns/{saleReturn}/receipt', [SalesReturnController::class, 'receipt'])->name('sales-returns.receipt');
+    Route::delete('/sales-returns/{saleReturn}', [SalesReturnController::class, 'destroy'])->name('sales-returns.destroy');
 
     // Products
     Route::resource('products', ProductController::class)->except(['show']);
@@ -63,6 +65,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/purchases', [PurchaseController::class, 'index'])->name('purchases.index');
     Route::get('/purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
     Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
+    Route::delete('/purchases/{purchase}', [PurchaseController::class, 'destroy'])->name('purchases.destroy');
 
     // Purchase Returns
     Route::get('/purchase-returns', [PurchaseReturnController::class, 'index'])->name('purchase-returns.index');
@@ -71,6 +74,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/purchase-returns/search-purchase', [PurchaseReturnController::class, 'searchPurchase'])->name('purchase-returns.search-purchase');
     Route::get('/purchase-returns/{purchaseReturn}', [PurchaseReturnController::class, 'show'])->name('purchase-returns.show');
     Route::get('/purchase-returns/{purchaseReturn}/receipt', [PurchaseReturnController::class, 'receipt'])->name('purchase-returns.receipt');
+    Route::delete('/purchase-returns/{purchaseReturn}', [PurchaseReturnController::class, 'destroy'])->name('purchase-returns.destroy');
 
     // Expenses
     Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');

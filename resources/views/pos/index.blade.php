@@ -798,6 +798,46 @@
         </div>
     </div>
 </div>
+
+<!-- EDIT ITEM PRICE MODAL -->
+<div class="modal fade" id="editPriceModal" tabindex="-1" aria-labelledby="editPriceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px;">
+            <div class="modal-header border-bottom py-3 px-4" style="background:#fafbfc; border-radius: 14px 14px 0 0;">
+                <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2 mb-0" id="editPriceModalLabel">
+                    <i class="bi bi-tag text-primary"></i> Change Item Price
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label small text-muted mb-1">Product</label>
+                    <div class="fw-bold text-dark text-truncate" id="modalEditProductName">—</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-dark mb-1">Unit Price (Rs.)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light fw-bold text-muted">Rs.</span>
+                        <input type="number" step="0.01" min="0" max="99999" id="modalEditItemPrice" class="form-control form-control-lg fw-bold text-primary" placeholder="0.00">
+                    </div>
+                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">Enter the new price for this item.</div>
+                </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="updateMasterProductPriceCheck">
+                    <label class="form-check-label small text-dark" for="updateMasterProductPriceCheck" style="font-size: 0.8rem;">
+                        Also update price in product catalog
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer border-top py-2 px-3" style="background:#fafbfc; border-radius: 0 0 14px 14px;">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary fw-semibold px-3" id="btnSaveCartPrice" onclick="saveCartPrice()">
+                    <i class="bi bi-check-lg me-1"></i> Update Price
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -1085,14 +1125,16 @@
                 row.innerHTML = `
                     <div class="cart-item-details">
                         <div class="cart-item-title" title="${item.name}">${item.name}</div>
-                        <div class="cart-item-sub">Rs. ${item.price.toLocaleString()} each</div>
+                        <div class="cart-item-sub" onclick="openEditPriceModal(${item.id})" style="cursor: pointer;" title="Click to change price">
+                            Rs. ${item.price.toLocaleString()} each <i class="bi bi-pencil-square text-primary small ms-1"></i>
+                        </div>
                     </div>
                     <div class="qty-stepper">
                         <button type="button" class="qty-stepper-btn" onclick="changeQty(${item.id}, -1)">&minus;</button>
                         <input type="text" class="qty-stepper-value" value="${item.quantity}" onchange="setDirectQty(${item.id}, this.value)">
                         <button type="button" class="qty-stepper-btn" onclick="changeQty(${item.id}, 1)">&plus;</button>
                     </div>
-                    <div class="cart-item-total">
+                    <div class="cart-item-total" onclick="openEditPriceModal(${item.id})" style="cursor: pointer;" title="Click to change price">
                         Rs. ${lineTotal.toLocaleString()}
                     </div>
                     <button type="button" class="btn-delete-item" onclick="removeItem(${item.id})" title="Remove item">
@@ -1118,6 +1160,96 @@
         document.getElementById('modalPayableTotal').innerText = 'Rs. ' + total.toLocaleString();
         calculateChange();
     }
+
+    // -------------------------------------------------------------
+    // Edit Cart Item Price Modal & Handler
+    // -------------------------------------------------------------
+    let editingItemId = null;
+
+    function openEditPriceModal(id) {
+        const item = cart.find(i => i.id === id);
+        if (!item) return;
+        editingItemId = id;
+
+        document.getElementById('modalEditProductName').innerText = item.name;
+        document.getElementById('modalEditItemPrice').value = item.price;
+        document.getElementById('updateMasterProductPriceCheck').checked = false;
+
+        const modalEl = document.getElementById('editPriceModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modalInstance.show();
+
+        setTimeout(() => {
+            const input = document.getElementById('modalEditItemPrice');
+            input.focus();
+            input.select();
+        }, 300);
+    }
+
+    function saveCartPrice() {
+        if (!editingItemId) return;
+        const item = cart.find(i => i.id === editingItemId);
+        if (!item) return;
+
+        const priceVal = document.getElementById('modalEditItemPrice').value;
+        const newPrice = parseFloat(priceVal);
+
+        if (isNaN(newPrice) || newPrice < 0) {
+            if (typeof toastr !== 'undefined') {
+                toastr.error('Please enter a valid price (0 or higher).');
+            } else {
+                alert('Please enter a valid price.');
+            }
+            return;
+        }
+
+        item.price = newPrice;
+
+        const updateMaster = document.getElementById('updateMasterProductPriceCheck').checked;
+        if (updateMaster) {
+            fetch(`/pos/products/${item.id}/update-price`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ sale_price: newPrice })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    const card = document.querySelector(`.product-card[data-id="${item.id}"]`);
+                    if (card) {
+                        card.dataset.price = newPrice;
+                        const priceBadge = card.querySelector('.price-badge');
+                        if (priceBadge) priceBadge.innerText = 'Rs. ' + newPrice.toLocaleString();
+                    }
+                    if (typeof toastr !== 'undefined') {
+                        toastr.info('Standard catalog price updated.');
+                    }
+                }
+            })
+            .catch(e => console.error(e));
+        }
+
+        renderCart();
+
+        const modalEl = document.getElementById('editPriceModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
+        if (typeof toastr !== 'undefined') {
+            toastr.success(`Price updated to Rs. ${newPrice.toLocaleString()}`);
+        }
+    }
+
+    document.getElementById('modalEditItemPrice').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveCartPrice();
+        }
+    });
 
     // -------------------------------------------------------------
     // Customer Inline Toggle
@@ -1349,7 +1481,7 @@
             due_date: null,
             notes: notes || null,
             payment_method: 'cash',
-            items: cart.map(i => ({ product_id: i.id, quantity: i.quantity })),
+            items: cart.map(i => ({ product_id: i.id, quantity: i.quantity, price: i.price })),
         };
 
         const btnSubmit = document.getElementById('btnSubmitSale');

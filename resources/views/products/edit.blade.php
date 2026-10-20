@@ -271,7 +271,7 @@
                             <label class="form-label small fw-semibold text-dark">Current Stock (Units)<span class="required-star">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-boxes"></i></span>
-                                <input type="number" step="1" min="1" max="99999" name="stock"
+                                <input type="number" step="1" min="0" max="99999" name="stock"
                                        class="form-control no-negative max-5-digits @error('stock') is-invalid-field @enderror"
                                        value="{{ old('stock', $product->stock) }}" required>
                             </div>

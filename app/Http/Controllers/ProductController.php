@@ -97,8 +97,8 @@ class ProductController extends Controller
             'category_id'     => ['required', 'exists:categories,id'],
             'purchase_price'  => ['required', 'numeric', 'min:1', 'max:99999'],
             'sale_price'      => ['required', 'numeric', 'min:1', 'max:99999'],
-            'stock'           => ['required', 'integer', 'min:1', 'max:99999'],
-            'alert_quantity'  => ['required', 'integer', 'min:1'],
+            'stock'           => ['required', 'integer', 'min:0', 'max:99999'],
+            'alert_quantity'  => ['required', 'integer', 'min:0'],
             'image'           => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,gif', 'max:5120'],
         ];
     }

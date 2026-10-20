@@ -236,6 +236,9 @@
                                     <a href="{{ route('purchase-returns.create', ['purchase_id' => $purchase->id]) }}" class="btn btn-outline-warning" title="Return to Supplier">
                                         <i class="bi bi-arrow-return-left"></i> Return
                                     </a>
+                                    <button type="button" class="btn btn-outline-danger" title="Delete Purchase & Deduct Stock" onclick="confirmDeletePurchase({{ $purchase->id }}, '{{ $purchase->reference_no }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -389,5 +392,30 @@
             modal.show();
         });
     });
+
+    function confirmDeletePurchase(purchaseId, refNo) {
+        if (!confirm(`Are you sure you want to delete Purchase ${refNo}?\n\nThis will permanently remove this purchase record and deduct the restocked quantities from product inventory.`)) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/purchases/${purchaseId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
 </script>
 @endpush

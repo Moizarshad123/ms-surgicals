@@ -425,6 +425,24 @@ class PurchaseReturnController extends Controller
     }
 
     /**
+     * Delete a purchase return and restore stock.
+     */
+    public function destroy(PurchaseReturn $purchaseReturn)
+    {
+        DB::transaction(function () use ($purchaseReturn) {
+            // Re-increment stock since return to supplier is cancelled/deleted
+            foreach ($purchaseReturn->items as $item) {
+                Product::where('id', $item->product_id)->increment('stock', $item->quantity);
+            }
+
+            $purchaseReturn->items()->delete();
+            $purchaseReturn->delete();
+        });
+
+        return redirect()->back()->with('success', 'Purchase return deleted and inventory restored successfully.');
+    }
+
+    /**
      * Format purchase for JSON consumption.
      */
     private function formatPurchaseData(Purchase $purchase): array

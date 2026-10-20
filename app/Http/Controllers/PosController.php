@@ -55,6 +55,7 @@ class PosController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $sale = DB::transaction(function () use ($validated, $request) {
@@ -87,13 +88,17 @@ class PosController extends Controller
                     abort(422, "Insufficient stock for {$product->name}. Available: {$product->stock}");
                 }
 
-                $lineTotal = $product->sale_price * $item['quantity'];
+                $unitPrice = isset($item['price']) && is_numeric($item['price']) && (float) $item['price'] >= 0
+                    ? (float) $item['price']
+                    : (float) $product->sale_price;
+
+                $lineTotal = $unitPrice * $item['quantity'];
                 $subTotal += $lineTotal;
 
                 $lineItems[] = [
                     'product' => $product,
                     'quantity' => $item['quantity'],
-                    'price' => $product->sale_price,
+                    'price' => $unitPrice,
                     'total' => $lineTotal,
                 ];
             }
@@ -407,5 +412,20 @@ class PosController extends Controller
         $pdf = Pdf::loadHTML($htmlContent)->setPaper([0, 0, 226.77, 841.89], 'portrait');
 
         return $pdf->stream('invoice-' . $sale->invoice_no . '.pdf');
+    }
+
+    public function updateProductPrice(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'sale_price' => ['required', 'numeric', 'min:0', 'max:99999'],
+        ]);
+
+        $product->update(['sale_price' => $validated['sale_price']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product catalog price updated successfully.',
+            'sale_price' => (float) $product->sale_price,
+        ]);
     }
 }

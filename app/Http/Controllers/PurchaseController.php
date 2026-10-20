@@ -76,4 +76,22 @@ class PurchaseController extends Controller
 
         return redirect()->route('purchases.index')->with('success', 'Purchase recorded and stock updated.');
     }
+
+    public function destroy(Purchase $purchase)
+    {
+        if ($purchase->returns()->exists()) {
+            return redirect()->back()->with('error', 'Cannot delete this purchase because it has purchase returns attached. Please delete the returns first.');
+        }
+
+        DB::transaction(function () use ($purchase) {
+            foreach ($purchase->items as $item) {
+                Product::where('id', $item->product_id)->decrement('stock', $item->quantity);
+            }
+
+            $purchase->items()->delete();
+            $purchase->delete();
+        });
+
+        return redirect()->back()->with('success', 'Purchase deleted and inventory adjusted successfully.');
+    }
 }

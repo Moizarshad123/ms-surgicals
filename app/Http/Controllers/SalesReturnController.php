@@ -475,10 +475,50 @@ class SalesReturnController extends Controller
         </body>
         </html>';
 
-        $pdf = Pdf::loadHTML($htmlContent);
-        $pdf->setPaper([0, 0, 226.77, 841.89], 'portrait');
-
+        $pdf = Pdf::loadHTML($htmlContent)->setPaper([0, 0, 226.77, 841.89], 'portrait');
         return $pdf->stream('return-' . $saleReturn->return_no . '.pdf');
+    }
+
+    /**
+     * Delete a sales return, reverse inventory, and restore original sale invoice.
+     */
+    public function destroy(SaleReturn $saleReturn)
+    {
+        DB::transaction(function () use ($saleReturn) {
+            // 1. Revert product stock: sales return had restocked them, so we decrement them back
+            foreach ($saleReturn->items as $item) {
+                Product::where('id', $item->product_id)->decrement('stock', $item->quantity);
+            }
+
+            // 2. Revert the original Sale record (if sale still exists)
+            $sale = $saleReturn->sale;
+            if ($sale) {
+                $restoredTotal = (float) $sale->total + (float) $saleReturn->total_amount;
+                $restoredSubTotal = (float) $sale->sub_total + (float) $saleReturn->total_amount;
+                $restoredPaid = (float) $sale->paid_amount + (float) $saleReturn->refund_amount;
+                $restoredStatus = ($restoredPaid >= $restoredTotal) ? 'paid' : ($restoredPaid > 0 ? 'partial' : 'due');
+
+                $sale->update([
+                    'total' => $restoredTotal,
+                    'sub_total' => $restoredSubTotal,
+                    'paid_amount' => $restoredPaid,
+                    'payment_status' => $restoredStatus,
+                ]);
+
+                // Delete the refund payment record in sale_payments if any cash was refunded
+                if ($saleReturn->refund_amount > 0) {
+                    SalePayment::where('sale_id', $sale->id)
+                        ->where('amount', -$saleReturn->refund_amount)
+                        ->where('note', 'like', "%{$saleReturn->return_no}%")
+                        ->delete();
+                }
+            }
+
+            $saleReturn->items()->delete();
+            $saleReturn->delete();
+        });
+
+        return redirect()->back()->with('success', 'Sales return deleted, inventory adjusted, and sale invoice restored.');
     }
 
     /**

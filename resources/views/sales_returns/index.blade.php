@@ -181,6 +181,9 @@
                                         <a target="_blank" href="{{ route('sales-returns.receipt', $ret->id) }}" class="btn btn-outline-primary py-1 px-2" title="Print Return Slip">
                                             <i class="bi bi-printer"></i>
                                         </a>
+                                        <button type="button" class="btn btn-outline-danger py-1 px-2" onclick="confirmDeleteSaleReturn({{ $ret->id }}, '{{ $ret->return_no }}')" title="Delete Sales Return & Reverse Inventory">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -354,6 +357,31 @@
             .catch(err => {
                 spinner.innerHTML = `<div class="text-danger">${err.message}</div>`;
             });
+    }
+
+    function confirmDeleteSaleReturn(returnId, returnNo) {
+        if (!confirm(`Are you sure you want to delete Sales Return ${returnNo}?\n\nThis will permanently delete this return, deduct the restocked units from product stock, and restore the original sale invoice totals.`)) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/sales-returns/${returnId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        document.body.appendChild(form);
+        form.submit();
     }
 </script>
 @endpush

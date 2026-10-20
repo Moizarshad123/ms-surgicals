@@ -274,10 +274,10 @@
                             <label class="form-label small fw-semibold text-dark">Opening Stock (Units)<span class="required-star">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-boxes"></i></span>
-                                <input type="number" step="1" min="1" max="99999" name="stock"
+                                <input type="number" step="1" min="0" max="99999" name="stock"
                                        class="form-control no-negative max-5-digits @error('stock') is-invalid-field @enderror"
                                        placeholder="Available quantity"
-                                       value="{{ old('stock', 1) }}" required>
+                                       value="{{ old('stock', 0) }}" required>
                             </div>
                             @error('stock')
                                 <div class="field-error">{{ $message }}</div>
@@ -288,7 +288,7 @@
                             <label class="form-label small fw-semibold text-dark">Low Stock Alert Quantity<span class="required-star">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-bell"></i></span>
-                                <input type="number" step="1" min="1" name="alert_quantity"
+                                <input type="number" step="1" min="0" name="alert_quantity"
                                        class="form-control no-negative @error('alert_quantity') is-invalid-field @enderror"
                                        placeholder="Trigger warning threshold"
                                        value="{{ old('alert_quantity', 5) }}" required>
