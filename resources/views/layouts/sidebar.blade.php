@@ -79,11 +79,20 @@
             </li>
 
             <li>
-                <a class="{{ request()->is('purchases*') && !request()->is('purchase-returns*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
+                <a class="{{ request()->is('purchases*') && !request()->is('purchase-returns*') && !request()->is('credit-purchases*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-credit-card"></i>
                     </span>
                     <span>Purchases</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{{ request()->is('credit-purchases*') ? 'active' : '' }}" href="{{ route('credit-purchases.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-journal-arrow-down"></i>
+                    </span>
+                    <span>Credit Purchases / Installments</span>
                 </a>
             </li>
 
@@ -114,14 +123,20 @@
                 </a>
             </li>
 
-            <li class="{{ request()->is('reports*') ? 'open' : '' }}">
-                <a href="javascript:;" class="{{ request()->is('reports*') ? 'active' : '' }}">
+            <li class="{{ request()->is('reports*') && !request()->is('reports/customer-ledger*') && !request()->is('reports/supplier-ledger*') ? 'open' : '' }}">
+                <a href="javascript:;" class="{{ request()->is('reports*') && !request()->is('reports/customer-ledger*') && !request()->is('reports/supplier-ledger*') ? 'active' : '' }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-receipt"></i>
                     </span>
                     <span>Reports</span>
                 </a>
                 <ul>
+                    <li>
+                        <a class="{{ request()->is('reports/profit*') ? 'active' : '' }}" href="{{ route('reports.profit') }}">Sales, Purchase &amp; Profit</a>
+                    </li>
+                    <li>
+                        <a class="{{ request()->is('reports/financial*') ? 'active' : '' }}" href="{{ route('reports.financial') }}">Business Financial Report</a>
+                    </li>
                     <li>
                         <a class="{{ request()->is('reports/sales*') ? 'active' : '' }}" href="{{ route('reports.sales') }}">Sales Report</a>
                     </li>
@@ -133,6 +148,23 @@
                     </li>
                     <li>
                         <a class="{{ request()->is('reports/bank*') ? 'active' : '' }}" href="{{ route('reports.bank') }}">Bank Statement / Report</a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="{{ request()->is('reports/customer-ledger*') || request()->is('reports/supplier-ledger*') ? 'open' : '' }}">
+                <a href="javascript:;" class="{{ request()->is('reports/customer-ledger*') || request()->is('reports/supplier-ledger*') ? 'active' : '' }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-journal-text"></i>
+                    </span>
+                    <span>Ledger Reports</span>
+                </a>
+                <ul>
+                    <li>
+                        <a class="{{ request()->is('reports/customer-ledger*') ? 'active' : '' }}" href="{{ route('reports.customer-ledger') }}">Customer Ledger Report</a>
+                    </li>
+                    <li>
+                        <a class="{{ request()->is('reports/supplier-ledger*') ? 'active' : '' }}" href="{{ route('reports.supplier-ledger') }}">Supplier Ledger Report</a>
                     </li>
                 </ul>
             </li>

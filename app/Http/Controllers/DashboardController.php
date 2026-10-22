@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bank;
+use App\Models\BankTransaction;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Purchase;
+use App\Models\PurchasePayment;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\SalePayment;
+use App\Models\SaleReturn;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -102,6 +107,41 @@ class DashboardController extends Controller
         // 8. Recent Sales Log
         $recentSales = Sale::with(['customer', 'items'])->latest()->take(6)->get();
 
+        // 9. Bank Balances
+        $banks = Bank::all();
+        $totalBankBalance = (float) $banks->sum(fn($b) => $b->current_balance);
+
+        // 10. Cash in Hand
+        // All cash received: cash sales + installment payments in cash
+        $cashSalesInflow = (float) SalePayment::where('payment_method', 'cash')->sum('amount');
+
+        // Cash withdrawn from bank (physical cash taken out)
+        $cashWithdrawalsFromBank = (float) BankTransaction::where('type', 'debit')
+            ->where(function ($q) {
+                $q->where('category', 'like', '%cash withdrawal%')
+                  ->orWhere('description', 'like', '%cash withdrawal%');
+            })->sum('amount');
+
+        // Cash deposited to bank (physical cash put in)
+        $cashDepositsToBank = (float) BankTransaction::where('type', 'credit')
+            ->where(function ($q) {
+                $q->where('category', 'like', '%cash deposit%')
+                  ->orWhere('description', 'like', '%cash deposit%');
+            })->sum('amount');
+
+        // Cash paid for purchases
+        $cashPurchases = (float) PurchasePayment::where('payment_method', 'cash')->sum('amount');
+
+        // All expenses (assumed cash unless tracked otherwise)
+        $cashExpenses = (float) Expense::sum('amount');
+
+        // Sale refunds paid back in cash
+        $cashRefunds = (float) SaleReturn::sum('refund_amount');
+
+        $cashInHand = $cashSalesInflow + $cashWithdrawalsFromBank
+                    - $cashPurchases - $cashExpenses - $cashDepositsToBank - $cashRefunds;
+        $cashInHand = round($cashInHand, 2);
+
         return view('dashboard.index', compact(
             'todaySales', 'todaySalesCount', 'todayPurchases', 'todayPurchasesCount',
             'todayExpenses', 'todayExpensesCount', 'todayNetCash',
@@ -110,7 +150,11 @@ class DashboardController extends Controller
             'chartLabels', 'chartSales', 'chartPurchases', 'chartExpenses',
             'donutCategoryLabels', 'donutCategorySeries',
             'cashflowLabels', 'cashflowSeries',
-            'topProducts', 'lowStockProducts', 'recentSales'
+            'topProducts', 'lowStockProducts', 'recentSales',
+            // Financial position tabs
+            'banks', 'totalBankBalance',
+            'cashInHand', 'cashSalesInflow', 'cashPurchases',
+            'cashExpenses', 'cashRefunds', 'cashWithdrawalsFromBank', 'cashDepositsToBank'
         ));
     }
 }

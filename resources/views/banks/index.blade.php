@@ -330,7 +330,7 @@
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ route('banks.transactions.store') }}" method="POST">
+            <form action="{{ route('banks.transactions.store') }}" method="POST" id="addTxForm">
                 @csrf
                 <div class="modal-body p-4">
                     <div class="row g-3">
@@ -347,7 +347,7 @@
                         <!-- Type (Debit / Credit) -->
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold text-dark">Transaction Type <span class="text-danger">*</span></label>
-                            <select name="type" class="form-select" required>
+                            <select name="type" id="addTxType" class="form-select" required>
                                 <option value="credit" class="text-success fw-bold">Credit / Received (Inflow +) — رقم وصول کی</option>
                                 <option value="debit" class="text-danger fw-bold">Debit / Paid (Outflow -) — رقم ادا کی</option>
                             </select>
@@ -356,7 +356,54 @@
                         <!-- Amount -->
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold text-dark">Amount (Rs.) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="1" name="amount" class="form-control fw-bold" placeholder="e.g. 50000" required>
+                            <input type="number" step="0.01" min="1" name="amount" id="addTxAmount" class="form-control fw-bold" placeholder="e.g. 50000" required>
+                            <!-- Outstanding due hint shown when a supplier/customer is picked -->
+                            <div id="addTxDueHint" class="form-text text-info fw-semibold d-none"></div>
+                        </div>
+
+                        <!-- Category / Purpose  ← NOW a <select> -->
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-dark">Category / Purpose</label>
+                            <select name="category" id="addTxCategory" class="form-select">
+                                <option value="">— Select Category —</option>
+                                <optgroup label="Linked Categories">
+                                    <option value="Customer Receipt">Customer Receipt</option>
+                                    <option value="Supplier Payment">Supplier Payment</option>
+                                </optgroup>
+                                <optgroup label="General">
+                                    <option value="Shop Expense">Shop Expense</option>
+                                    <option value="Utility Bill">Utility Bill</option>
+                                    <option value="Cash Deposit">Cash Deposit</option>
+                                    <option value="Cash Withdrawal">Cash Withdrawal</option>
+                                    <option value="Owner Drawing">Owner Drawing</option>
+                                    <option value="Salary Payment">Salary Payment</option>
+                                    <option value="Other">Other</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Supplier dropdown (shown only when category=Supplier Payment + type=debit) -->
+                        <div class="col-md-12 d-none" id="addTxSupplierRow">
+                            <label class="form-label small fw-semibold text-dark">
+                                <i class="bi bi-truck text-danger me-1"></i>
+                                Select Supplier <span class="text-danger">*</span>
+                                <span class="badge bg-danger-subtle text-danger border ms-1 small">Outstanding balance only</span>
+                            </label>
+                            <select name="linked_supplier" id="addTxSupplier" class="form-select">
+                                <option value="">— Loading suppliers… —</option>
+                            </select>
+                        </div>
+
+                        <!-- Customer dropdown (shown only when category=Customer Receipt + type=credit) -->
+                        <div class="col-md-12 d-none" id="addTxCustomerRow">
+                            <label class="form-label small fw-semibold text-dark">
+                                <i class="bi bi-person-check text-success me-1"></i>
+                                Select Customer <span class="text-danger">*</span>
+                                <span class="badge bg-success-subtle text-success border ms-1 small">Outstanding balance only</span>
+                            </label>
+                            <select name="linked_customer_id" id="addTxCustomer" class="form-select">
+                                <option value="">— Loading customers… —</option>
+                            </select>
                         </div>
 
                         <!-- Party / Person Name -->
@@ -365,7 +412,7 @@
                                 Party / Person Name <span class="text-danger">*</span>
                                 <small class="text-muted">(Kise di / Kis se receive ki)</small>
                             </label>
-                            <input type="text" name="person_name" class="form-control" placeholder="e.g. Customer name, Supplier, or Self" required>
+                            <input type="text" name="person_name" id="addTxPersonName" class="form-control" placeholder="e.g. Customer name, Supplier, or Self" required>
                         </div>
 
                         <!-- Date -->
@@ -386,24 +433,8 @@
                             <input type="text" name="reference_no" class="form-control" placeholder="e.g. CHQ-92841">
                         </div>
 
-                        <!-- Category -->
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold text-dark">Category / Purpose</label>
-                            <input type="text" name="category" list="categoryPresets" class="form-control" placeholder="e.g. Customer Receipt, Supplier Payment, Shop Expense">
-                            <datalist id="categoryPresets">
-                                <option value="Customer Receipt">
-                                <option value="Supplier Payment">
-                                <option value="Shop Expense">
-                                <option value="Utility Bill">
-                                <option value="Cash Deposit">
-                                <option value="Cash Withdrawal">
-                                <option value="Owner Drawing">
-                                <option value="Salary Payment">
-                            </datalist>
-                        </div>
-
                         <!-- Description -->
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label class="form-label small fw-semibold text-dark">Description / Remarks</label>
                             <input type="text" name="description" class="form-control" placeholder="Optional notes about this transaction">
                         </div>
@@ -543,6 +574,143 @@
 
 @push('scripts')
 <script>
+    // ─────────────────────────────────────────────────────────────
+    // Add Transaction Modal — Dynamic Category / Linked Entity Logic
+    // ─────────────────────────────────────────────────────────────
+    const addTxType     = document.getElementById('addTxType');
+    const addTxCategory = document.getElementById('addTxCategory');
+    const addTxAmount   = document.getElementById('addTxAmount');
+    const addTxPersonName = document.getElementById('addTxPersonName');
+    const addTxDueHint  = document.getElementById('addTxDueHint');
+    const supplierRow   = document.getElementById('addTxSupplierRow');
+    const customerRow   = document.getElementById('addTxCustomerRow');
+    const supplierSel   = document.getElementById('addTxSupplier');
+    const customerSel   = document.getElementById('addTxCustomer');
+
+    let suppliersCache = null;
+    let customersCache = null;
+
+    function formatAmount(n) {
+        return 'Rs. ' + Number(n).toLocaleString('en-PK', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function updateLinkedRow() {
+        const cat  = addTxCategory.value;
+        const type = addTxType.value;
+
+        supplierRow.classList.add('d-none');
+        customerRow.classList.add('d-none');
+        supplierSel.required = false;
+        customerSel.required = false;
+        addTxDueHint.classList.add('d-none');
+
+        if (cat === 'Supplier Payment' && type === 'debit') {
+            supplierRow.classList.remove('d-none');
+            supplierSel.required = true;
+            loadSuppliers();
+        } else if (cat === 'Customer Receipt' && type === 'credit') {
+            customerRow.classList.remove('d-none');
+            customerSel.required = true;
+            loadCustomers();
+        }
+    }
+
+    function loadSuppliers() {
+        if (suppliersCache) { populateSupplierSelect(suppliersCache); return; }
+        supplierSel.innerHTML = '<option value="">— Loading… —</option>';
+        fetch('{{ route("banks.suppliers-with-due") }}')
+            .then(r => r.json())
+            .then(data => {
+                suppliersCache = data;
+                populateSupplierSelect(data);
+            });
+    }
+
+    function populateSupplierSelect(data) {
+        if (!data.length) {
+            supplierSel.innerHTML = '<option value="">No suppliers with outstanding balance</option>';
+            return;
+        }
+        supplierSel.innerHTML = '<option value="">— Select Supplier —</option>' +
+            data.map(s =>
+                `<option value="${s.name}" data-due="${s.total_due}">${s.name} — Due: ${formatAmount(s.total_due)}</option>`
+            ).join('');
+        onSupplierChange();
+    }
+
+    function loadCustomers() {
+        if (customersCache) { populateCustomerSelect(customersCache); return; }
+        customerSel.innerHTML = '<option value="">— Loading… —</option>';
+        fetch('{{ route("banks.customers-with-due") }}')
+            .then(r => r.json())
+            .then(data => {
+                customersCache = data;
+                populateCustomerSelect(data);
+            });
+    }
+
+    function populateCustomerSelect(data) {
+        if (!data.length) {
+            customerSel.innerHTML = '<option value="">No customers with outstanding balance</option>';
+            return;
+        }
+        customerSel.innerHTML = '<option value="">— Select Customer —</option>' +
+            data.map(c =>
+                `<option value="${c.id}" data-due="${c.total_due}" data-name="${c.name}">${c.name} — Due: ${formatAmount(c.total_due)}</option>`
+            ).join('');
+        onCustomerChange();
+    }
+
+    function onSupplierChange() {
+        const opt = supplierSel.selectedOptions[0];
+        if (!opt || !opt.dataset.due) {
+            addTxDueHint.classList.add('d-none');
+            return;
+        }
+        const due = parseFloat(opt.dataset.due);
+        addTxAmount.max = '';  // allow up to full due (system supports exact match)
+        addTxDueHint.textContent = `⚠ Outstanding balance for ${opt.value}: ${formatAmount(due)}`;
+        addTxDueHint.classList.remove('d-none');
+        // Auto-fill person name
+        if (!addTxPersonName.value) addTxPersonName.value = opt.value;
+    }
+
+    function onCustomerChange() {
+        const opt = customerSel.selectedOptions[0];
+        if (!opt || !opt.dataset.due) {
+            addTxDueHint.classList.add('d-none');
+            return;
+        }
+        const due = parseFloat(opt.dataset.due);
+        addTxAmount.max = '';
+        addTxDueHint.textContent = `⚠ Outstanding balance for ${opt.dataset.name}: ${formatAmount(due)}`;
+        addTxDueHint.classList.remove('d-none');
+        // Auto-fill person name
+        if (!addTxPersonName.value) addTxPersonName.value = opt.dataset.name;
+    }
+
+    addTxType.addEventListener('change', updateLinkedRow);
+    addTxCategory.addEventListener('change', updateLinkedRow);
+    supplierSel.addEventListener('change', onSupplierChange);
+    customerSel.addEventListener('change', onCustomerChange);
+
+    // Reset caches when modal closes so fresh data is fetched next time
+    document.getElementById('addTransactionModal').addEventListener('hidden.bs.modal', function () {
+        suppliersCache = null;
+        customersCache = null;
+        addTxCategory.value = '';
+        addTxType.value = 'credit';
+        addTxPersonName.value = '';
+        addTxDueHint.classList.add('d-none');
+        supplierRow.classList.add('d-none');
+        customerRow.classList.add('d-none');
+        supplierSel.required = false;
+        customerSel.required = false;
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // Edit Transaction Modal
+    // ─────────────────────────────────────────────────────────────
     function openEditTxModal(tx) {
         document.getElementById('editTxForm').action = `/banks/transactions/${tx.id}`;
         document.getElementById('editTxBankId').value = tx.bank_id;
@@ -558,6 +726,9 @@
         new bootstrap.Modal(document.getElementById('editTransactionModal')).show();
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Edit Bank Modal
+    // ─────────────────────────────────────────────────────────────
     function openEditBankModal(bank) {
         document.getElementById('editBankForm').action = `/banks/${bank.id}`;
         document.getElementById('modalBankTitleName').innerText = bank.name;

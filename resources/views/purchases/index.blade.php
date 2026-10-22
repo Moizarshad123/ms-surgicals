@@ -178,7 +178,8 @@
                         <th>Purchase Date</th>
                         <th>Items Count</th>
                         <th>Grand Total</th>
-                        <th class="text-end" style="width: 120px;">Details</th>
+                        <th>Payment Status</th>
+                        <th class="text-end" style="width: 140px;">Details</th>
                     </tr>
                 </thead>
                 <tbody id="purchasesTableBody">
@@ -223,8 +224,28 @@
                             <td>
                                 <span class="fw-bold text-dark fs-6">Rs. {{ number_format($purchase->total) }}</span>
                             </td>
+                            <td>
+                                @if($purchase->payment_status === 'paid')
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Paid
+                                    </span>
+                                @elseif($purchase->payment_status === 'partial')
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1" title="Paid: Rs. {{ number_format($purchase->paid_amount) }}">
+                                        <i class="bi bi-hourglass-split me-1"></i> Partial (Due: Rs. {{ number_format($purchase->due_amount) }})
+                                    </span>
+                                @else
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">
+                                        <i class="bi bi-exclamation-circle-fill me-1"></i> Unpaid (Rs. {{ number_format($purchase->due_amount) }})
+                                    </span>
+                                @endif
+                            </td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
+                                    @if($purchase->due_amount > 0)
+                                        <a href="{{ route('credit-purchases.index', ['search' => $purchase->reference_no]) }}" class="btn btn-outline-success" title="Pay Installment">
+                                            <i class="bi bi-plus-circle"></i> Pay
+                                        </a>
+                                    @endif
                                     <button type="button" class="btn btn-outline-primary btn-view-purchase"
                                             data-ref="{{ $purchase->reference_no }}"
                                             data-supplier="{{ $purchase->supplier_name ?: 'General Supplier' }}"

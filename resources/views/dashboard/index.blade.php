@@ -171,6 +171,280 @@
     </div>
 </div>
 
+<!-- ============================================================
+     Financial Position Tabs: Bank Balances & Cash in Hand
+     ============================================================ -->
+<div class="card dash-card mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-bank text-primary"></i>
+            <h6 class="fw-bold text-dark mb-0">Financial Position</h6>
+            <span class="badge bg-light text-muted border ms-1 small">Live Balances</span>
+        </div>
+        <!-- Tab Nav -->
+        <ul class="nav nav-pills gap-1" id="financialPosTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active px-3 py-1 small fw-semibold" id="tab-bank-btn"
+                    data-bs-toggle="pill" data-bs-target="#tab-bank" type="button" role="tab"
+                    aria-controls="tab-bank" aria-selected="true">
+                    <i class="bi bi-building me-1"></i> Bank Balances
+                    <span class="badge ms-1 text-white" style="background:#ff6e40; font-size:0.72rem;">
+                        Rs. {{ number_format($totalBankBalance) }}
+                    </span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-3 py-1 small fw-semibold" id="tab-cash-btn"
+                    data-bs-toggle="pill" data-bs-target="#tab-cash" type="button" role="tab"
+                    aria-controls="tab-cash" aria-selected="false">
+                    <i class="bi bi-cash-coin me-1"></i> Cash in Hand
+                    <span class="badge ms-1 {{ $cashInHand >= 0 ? 'bg-success' : 'bg-danger' }} text-white" style="font-size:0.72rem;">
+                        Rs. {{ number_format($cashInHand) }}
+                    </span>
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <div class="card-body p-3">
+        <div class="tab-content" id="financialPosTabsContent">
+
+            {{-- ── TAB 1: Bank Balances ── --}}
+            <div class="tab-pane fade show active" id="tab-bank" role="tabpanel" aria-labelledby="tab-bank-btn">
+
+                @if($banks->isEmpty())
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-bank fs-1 d-block mb-2 text-secondary"></i>
+                        <p class="small mb-0">No bank accounts found. <a href="{{ route('banks.index') }}">Add a bank account</a>.</p>
+                    </div>
+                @else
+                    <!-- Summary total strip -->
+                    <div class="d-flex align-items-center justify-content-between rounded px-3 py-2 mb-3"
+                         style="background: linear-gradient(90deg, #fff7f4, #fff); border: 1px solid #ffe6dc;">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="kpi-icon" style="background: rgba(255,110,64,0.1); color: #ff6e40; width:38px; height:38px; font-size:1.1rem;">
+                                <i class="bi bi-cash-stack"></i>
+                            </div>
+                            <div>
+                                <div class="text-muted small">Combined Bank Balance</div>
+                                <div class="fw-bold text-dark fs-5">Rs. {{ number_format($totalBankBalance, 2) }}</div>
+                            </div>
+                        </div>
+                        <a href="{{ route('banks.index') }}" class="btn btn-sm btn-outline-secondary py-0 px-2">
+                            Manage Banks <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+
+                    <div class="row g-3">
+                        @foreach($banks as $bank)
+                            <div class="col-md-6">
+                                <div class="card border rounded-3 h-100" style="border-color: #eef1f6 !important;">
+                                    <div class="card-body p-3">
+                                        <!-- Header row -->
+                                        <div class="d-flex align-items-start justify-content-between mb-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                                     style="width:38px; height:38px; background:rgba(255,110,64,0.1); color:#ff6e40; font-size:1.1rem;">
+                                                    <i class="bi bi-building"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold text-dark small">{{ $bank->name }}</div>
+                                                    @if($bank->account_title)
+                                                        <div class="text-muted" style="font-size:0.72rem;">{{ $bank->account_title }}</div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <span class="badge {{ $bank->status === 'active' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border' }} small">
+                                                {{ ucfirst($bank->status ?? 'active') }}
+                                            </span>
+                                        </div>
+
+                                        <!-- Account number -->
+                                        @if($bank->account_number)
+                                            <div class="text-muted small font-monospace mb-2">
+                                                <i class="bi bi-credit-card me-1"></i>{{ $bank->account_number }}
+                                                @if($bank->branch)
+                                                    &nbsp;&bull;&nbsp;{{ $bank->branch }}
+                                                @endif
+                                            </div>
+                                        @endif
+
+                                        <!-- Balance stats -->
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-4">
+                                                <div class="text-center p-2 rounded" style="background:#f8fafc; border:1px solid #edf1f6;">
+                                                    <div class="text-muted" style="font-size:0.68rem;">Opening</div>
+                                                    <div class="fw-semibold text-dark small">Rs. {{ number_format((float)$bank->opening_balance) }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="text-center p-2 rounded" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                                                    <div class="text-muted" style="font-size:0.68rem;">Total In</div>
+                                                    <div class="fw-semibold text-success small">Rs. {{ number_format($bank->total_credit) }}</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="text-center p-2 rounded" style="background:#fff5f5; border:1px solid #fecaca;">
+                                                    <div class="text-muted" style="font-size:0.68rem;">Total Out</div>
+                                                    <div class="fw-semibold text-danger small">Rs. {{ number_format($bank->total_debit) }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Current balance highlight -->
+                                        <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
+                                            <span class="text-muted small fw-semibold">Current Balance</span>
+                                            <span class="fw-bold fs-6 {{ $bank->current_balance >= 0 ? 'text-success' : 'text-danger' }}">
+                                                Rs. {{ number_format($bank->current_balance, 2) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            {{-- ── TAB 2: Cash in Hand ── --}}
+            <div class="tab-pane fade" id="tab-cash" role="tabpanel" aria-labelledby="tab-cash-btn">
+
+                <!-- Net Cash in Hand Hero -->
+                <div class="d-flex align-items-center justify-content-between rounded px-3 py-2 mb-4"
+                     style="background: linear-gradient(90deg, {{ $cashInHand >= 0 ? '#f0fdf4, #fff' : '#fff5f5, #fff' }}); border: 1px solid {{ $cashInHand >= 0 ? '#bbf7d0' : '#fecaca' }};">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="kpi-icon" style="background: {{ $cashInHand >= 0 ? 'rgba(5,177,113,0.1)' : 'rgba(234,68,68,0.1)' }}; color: {{ $cashInHand >= 0 ? '#05b171' : '#ea4444' }}; width:42px; height:42px; font-size:1.25rem;">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Total Cash in Hand</div>
+                            <div class="fw-bold fs-4 {{ $cashInHand >= 0 ? 'text-success' : 'text-danger' }}">
+                                Rs. {{ number_format($cashInHand, 2) }}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="badge {{ $cashInHand >= 0 ? 'bg-success' : 'bg-danger' }} text-white px-3 py-2">
+                        <i class="bi bi-{{ $cashInHand >= 0 ? 'arrow-up-circle' : 'arrow-down-circle' }} me-1"></i>
+                        {{ $cashInHand >= 0 ? 'Positive Cash Position' : 'Cash Deficit' }}
+                    </span>
+                </div>
+
+                <!-- Inflows vs Outflows breakdown -->
+                <div class="row g-3">
+                    <!-- Inflows -->
+                    <div class="col-md-6">
+                        <div class="card border rounded-3 h-100" style="border-color: #bbf7d0 !important;">
+                            <div class="card-header bg-success-subtle py-2 px-3 border-bottom border-success-subtle rounded-top-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-arrow-down-circle-fill text-success"></i>
+                                    <span class="fw-semibold text-success small">Cash Inflows</span>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table align-middle mb-0 small">
+                                    <tbody>
+                                        <tr>
+                                            <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-cart-check me-1 text-success"></i>
+                                                Cash Sales &amp; Payments Collected
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-success">
+                                                + Rs. {{ number_format($cashSalesInflow, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#f0fdf4;">
+                                            <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-bank me-1 text-success"></i>
+                                                Cash Withdrawn from Bank
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-success">
+                                                + Rs. {{ number_format($cashWithdrawalsFromBank, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr class="table-light fw-bold">
+                                            <td class="px-3 py-2">Total Inflows</td>
+                                            <td class="text-end px-3 py-2 text-success">
+                                                Rs. {{ number_format($cashSalesInflow + $cashWithdrawalsFromBank, 2) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Outflows -->
+                    <div class="col-md-6">
+                        <div class="card border rounded-3 h-100" style="border-color: #fecaca !important;">
+                            <div class="card-header bg-danger-subtle py-2 px-3 border-bottom border-danger-subtle rounded-top-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-arrow-up-circle-fill text-danger"></i>
+                                    <span class="fw-semibold text-danger small">Cash Outflows</span>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table align-middle mb-0 small">
+                                    <tbody>
+                                        <tr>
+                                            <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-truck me-1 text-danger"></i>
+                                                Cash Purchase Payments
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-danger">
+                                                − Rs. {{ number_format($cashPurchases, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#fff5f5;">
+                                            <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-wallet2 me-1 text-danger"></i>
+                                                Operating Expenses
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-danger">
+                                                − Rs. {{ number_format($cashExpenses, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-bank me-1 text-danger"></i>
+                                                Cash Deposited to Bank
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-danger">
+                                                − Rs. {{ number_format($cashDepositsToBank, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#fff5f5;">
+                                            <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-arrow-return-left me-1 text-danger"></i>
+                                                Cash Refunds (Returns)
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-danger">
+                                                − Rs. {{ number_format($cashRefunds, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr class="table-light fw-bold">
+                                            <td class="px-3 py-2">Total Outflows</td>
+                                            <td class="text-end px-3 py-2 text-danger">
+                                                Rs. {{ number_format($cashPurchases + $cashExpenses + $cashDepositsToBank + $cashRefunds, 2) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculation formula note -->
+                <div class="alert alert-light border mt-3 mb-0 small text-muted py-2 px-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Formula:</strong> Cash in Hand = (Cash Sales &amp; Payments + Bank Withdrawals) − (Cash Purchases + Expenses + Bank Deposits + Refunds)
+                </div>
+            </div>
+
+        </div>{{-- end tab-content --}}
+    </div>
+</div>
+
 <!-- Charts Section Row -->
 <div class="row g-3 mb-4">
     <!-- Area Chart: 7-Day Performance Trend -->
@@ -408,7 +682,7 @@
 </div>
 
 <!-- Secondary Summary Ribbon -->
-<div class="row g-3">
+<div class="row g-3 mb-4">
     <div class="col-sm-6 col-md-3">
         <div class="mini-stat-bar d-flex align-items-center justify-content-between">
             <span class="text-muted small">This Month's Sales</span>
@@ -434,6 +708,8 @@
         </div>
     </div>
 </div>
+
+
 @endsection
 
 @push('scripts')

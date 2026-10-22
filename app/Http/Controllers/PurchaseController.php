@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\PurchasePayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,11 +14,12 @@ class PurchaseController extends Controller
 {
     public function index()
     {
-        $purchases = Purchase::with(['items.product'])->withCount('items')->latest('purchase_date')->paginate(15);
-        $totalSpent = Purchase::sum('total');
+        $purchases = Purchase::with(['items.product', 'payments'])->withCount('items')->latest('purchase_date')->paginate(15);
+        $totalSpent = (float) Purchase::sum('total');
         $totalPurchases = Purchase::count();
         $totalUnitsPurchased = PurchaseItem::sum('quantity');
-        $thisMonthSpent = Purchase::whereMonth('purchase_date', now()->month)
+        $totalDue = (float) Purchase::whereIn('payment_status', ['partial', 'due'])->sum(DB::raw('total - paid_amount'));
+        $thisMonthSpent = (float) Purchase::whereMonth('purchase_date', now()->month)
             ->whereYear('purchase_date', now()->year)
             ->sum('total');
 
@@ -26,6 +28,7 @@ class PurchaseController extends Controller
             'totalSpent',
             'totalPurchases',
             'totalUnitsPurchased',
+            'totalDue',
             'thisMonthSpent'
         ));
     }
@@ -46,6 +49,10 @@ class PurchaseController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
+            'due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         DB::transaction(function () use ($validated) {
@@ -54,12 +61,44 @@ class PurchaseController extends Controller
                 $total += $item['quantity'] * $item['price'];
             }
 
+            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : $total;
+            $paidAmount = min($paidInput, $total);
+
+            if ($paidAmount >= $total) {
+                $paymentStatus = 'paid';
+                $dueDate = null;
+            } elseif ($paidAmount > 0) {
+                $paymentStatus = 'partial';
+                $dueDate = $validated['due_date'] ?? null;
+            } else {
+                $paymentStatus = 'due';
+                $dueDate = $validated['due_date'] ?? null;
+            }
+
+            $lastId  = Purchase::lockForUpdate()->latest('id')->value('id') ?? 0;
+            $orderNo = str_pad($lastId + 1, 3, '0', STR_PAD_LEFT); // 001, 002, 003 ...
+
             $purchase = Purchase::create([
-                'reference_no' => 'PUR-' . now()->format('Ymd') . '-' . strtoupper(Str::random(5)),
+                'reference_no' => 'PUR-' . now()->format('Ymd') . '-' . $orderNo,
                 'supplier_name' => $validated['supplier_name'] ?? null,
                 'purchase_date' => $validated['purchase_date'],
                 'total' => $total,
+                'paid_amount' => $paidAmount,
+                'due_date' => $dueDate,
+                'payment_status' => $paymentStatus,
+                'notes' => $validated['notes'] ?? null,
             ]);
+
+            if ($paidAmount > 0) {
+                PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount' => $paidAmount,
+                    'payment_date' => $validated['purchase_date'],
+                    'payment_method' => $validated['payment_method'] ?? 'cash',
+                    'note' => $paidAmount < $total ? 'Initial Advance / Down Payment' : 'Full Payment on Order',
+                    'user_id' => auth()->id(),
+                ]);
+            }
 
             foreach ($validated['items'] as $item) {
                 PurchaseItem::create([
@@ -94,6 +133,8 @@ class PurchaseController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
+            'due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         DB::transaction(function () use ($validated, $purchase) {
@@ -122,11 +163,19 @@ class PurchaseController extends Controller
                 Product::where('id', $item['product_id'])->increment('stock', $item['quantity']);
             }
 
+            // Recalculate payment status based on current paid_amount vs new total
+            $paid = (float) $purchase->paid_amount;
+            $paymentStatus = ($paid >= $total) ? 'paid' : ($paid > 0 ? 'partial' : 'due');
+            $dueDate = ($paymentStatus === 'paid') ? null : ($validated['due_date'] ?? $purchase->due_date);
+
             // 4. Update purchase header
             $purchase->update([
                 'supplier_name' => $validated['supplier_name'] ?? null,
                 'purchase_date' => $validated['purchase_date'],
                 'total' => $total,
+                'payment_status' => $paymentStatus,
+                'due_date' => $dueDate,
+                'notes' => $validated['notes'] ?? $purchase->notes,
             ]);
         });
 

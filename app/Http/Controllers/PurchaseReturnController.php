@@ -201,9 +201,13 @@ class PurchaseReturnController extends Controller
                     ->decrement('stock', $prep['quantity']);
             }
 
-            // Adjust Purchase Total
+            // Adjust Purchase Total & Status
             $newTotal = max(0, (float) $purchase->total - $totalReturnAmount);
-            $purchase->update(['total' => $newTotal]);
+            $newStatus = ($purchase->paid_amount >= $newTotal) ? 'paid' : ($purchase->paid_amount > 0 ? 'partial' : 'due');
+            $purchase->update([
+                'total' => $newTotal,
+                'payment_status' => $newStatus,
+            ]);
 
             return $purchaseReturn;
         });

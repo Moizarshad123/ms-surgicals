@@ -193,10 +193,28 @@
                             <span class="fw-semibold text-dark" id="summaryUnitsCount">0</span>
                         </div>
                         <hr class="my-2 text-muted opacity-25">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="fw-bold text-dark">Grand Total:</span>
                             <span class="fw-bold text-success fs-5">Rs. <span id="grandTotal">0.00</span></span>
                         </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 pt-2 border-top">
+                            <span class="text-muted small">Paid Amount:</span>
+                            <span class="fw-semibold text-success">Rs. {{ number_format($purchase->paid_amount) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="small fw-semibold text-danger">Balance Due:</span>
+                            <span class="fw-bold text-danger">Rs. {{ number_format($purchase->due_amount) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark mb-1">Due Date</label>
+                        <input type="date" name="due_date" class="form-control form-control-sm" value="{{ $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark mb-1">Notes / Terms</label>
+                        <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Optional supplier credit notes...">{{ $purchase->notes }}</textarea>
                     </div>
 
                     <div class="alert alert-info border-0 small mb-3 py-2 px-3" style="background: rgba(37,194,227,0.1); color: #088198;">

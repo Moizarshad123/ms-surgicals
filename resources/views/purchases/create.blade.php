@@ -186,10 +186,53 @@
                             <span class="fw-semibold text-dark" id="summaryUnitsCount">0</span>
                         </div>
                         <hr class="my-2 text-muted opacity-25">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="fw-bold text-dark">Grand Total:</span>
                             <span class="fw-bold text-success fs-5">Rs. <span id="grandTotal">0.00</span></span>
                         </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <span class="small fw-semibold text-danger">Remaining Due:</span>
+                            <span class="fw-bold text-danger" id="remainingDueDisplay">Rs. 0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Payment Mode & Installments -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark mb-1">Payment Mode</label>
+                        <select id="paymentTypeSelect" class="form-select form-select-sm" onchange="onPaymentTypeChange()">
+                            <option value="paid" selected>Full Payment (Paid)</option>
+                            <option value="partial">Partial Payment (Advance + Credit)</option>
+                            <option value="due">Full Credit / Pay Later (Due)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="paidAmountWrap">
+                        <label class="form-label small fw-semibold text-dark mb-1">Amount Paid (Rs.) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0" name="paid_amount" id="paidAmountInput" 
+                               class="form-control fw-bold text-end" value="0.00" oninput="onPaidAmountChange()">
+                    </div>
+
+                    <div class="mb-3" id="dueDateGroup" style="display:none;">
+                        <label class="form-label small fw-semibold text-dark mb-1">Due Date <span class="text-danger">*</span></label>
+                        <input type="date" name="due_date" id="dueDateInput" class="form-control form-control-sm" value="{{ date('Y-m-d', strtotime('+7 days')) }}">
+                        <small class="text-muted" style="font-size:0.75rem;">Payment deadline for balance due</small>
+                    </div>
+
+                    <div class="mb-3" id="paymentMethodGroup">
+                        <label class="form-label small fw-semibold text-dark mb-1">Payment Method</label>
+                        <select name="payment_method" class="form-select form-select-sm">
+                            <option value="cash" selected>Cash</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="easypaisa">EasyPaisa</option>
+                            <option value="jazzcash">JazzCash</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark mb-1">Notes / Remarks</label>
+                        <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Optional supplier credit or purchase terms..."></textarea>
                     </div>
 
                     <div class="alert alert-info border-0 small mb-3 py-2 px-3" style="background: rgba(37,194,227,0.1); color: #088198;">
@@ -290,6 +333,8 @@
         calcGrandTotal();
     }
 
+    let currentGrandTotal = 0;
+
     function calcGrandTotal() {
         let total = 0;
         let totalUnits = 0;
@@ -305,10 +350,66 @@
             totalUnits += qty;
         });
 
+        currentGrandTotal = total;
         document.getElementById('grandTotal').innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         document.getElementById('summaryItemsCount').innerText = itemCount;
         document.getElementById('summaryUnitsCount').innerText = totalUnits;
         document.getElementById('itemCountLabel').innerText = itemCount;
+
+        syncPaymentWithTotal();
+    }
+
+    function syncPaymentWithTotal() {
+        const type = document.getElementById('paymentTypeSelect').value;
+        const paidInput = document.getElementById('paidAmountInput');
+        const dueGroup = document.getElementById('dueDateGroup');
+        const dueDisplay = document.getElementById('remainingDueDisplay');
+        const methodGroup = document.getElementById('paymentMethodGroup');
+
+        if (type === 'paid') {
+            paidInput.value = currentGrandTotal.toFixed(2);
+            paidInput.readOnly = true;
+            dueGroup.style.display = 'none';
+            methodGroup.style.display = 'block';
+            dueDisplay.innerText = 'Rs. 0.00';
+        } else if (type === 'due') {
+            paidInput.value = (0).toFixed(2);
+            paidInput.readOnly = true;
+            dueGroup.style.display = 'block';
+            methodGroup.style.display = 'none';
+            dueDisplay.innerText = 'Rs. ' + currentGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            // Partial
+            paidInput.readOnly = false;
+            let paid = parseFloat(paidInput.value) || 0;
+            if (paid > currentGrandTotal) {
+                paid = currentGrandTotal;
+                paidInput.value = paid.toFixed(2);
+            }
+            let due = Math.max(0, currentGrandTotal - paid);
+            dueGroup.style.display = due > 0 ? 'block' : 'none';
+            methodGroup.style.display = 'block';
+            dueDisplay.innerText = 'Rs. ' + due.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+    }
+
+    function onPaymentTypeChange() {
+        syncPaymentWithTotal();
+    }
+
+    function onPaidAmountChange() {
+        const paidInput = document.getElementById('paidAmountInput');
+        let paid = parseFloat(paidInput.value) || 0;
+        if (paid > currentGrandTotal) {
+            paid = currentGrandTotal;
+            paidInput.value = paid.toFixed(2);
+        }
+        let due = Math.max(0, currentGrandTotal - paid);
+        const dueGroup = document.getElementById('dueDateGroup');
+        const dueDisplay = document.getElementById('remainingDueDisplay');
+
+        dueGroup.style.display = due > 0 ? 'block' : 'none';
+        dueDisplay.innerText = 'Rs. ' + due.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     // Form submission validation

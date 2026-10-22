@@ -538,7 +538,7 @@
                 <div class="category-pill active" data-category="all">
                     <i class="bi bi-grid-fill me-1"></i> All Products ({{ $products->count() }})
                 </div>
-                @foreach ($categories as $cat)
+                {{-- @foreach ($categories as $cat)
                     @php
                         $catProductCount = $products->where('category_id', $cat->id)->count();
                     @endphp
@@ -547,7 +547,7 @@
                             {{ $cat->name }} ({{ $catProductCount }})
                         </div>
                     @endif
-                @endforeach
+                @endforeach --}}
             </div>
 
             <!-- Product Cards Grid -->

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CreditPurchaseController;
 use App\Http\Controllers\CreditSaleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
@@ -71,6 +72,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
     Route::delete('/purchases/{purchase}', [PurchaseController::class, 'destroy'])->name('purchases.destroy');
 
+    // Credit Purchases & Installments
+    Route::get('/credit-purchases', [CreditPurchaseController::class, 'index'])->name('credit-purchases.index');
+    Route::get('/credit-purchases/{purchase}', [CreditPurchaseController::class, 'show'])->name('credit-purchases.show');
+    Route::post('/credit-purchases/{purchase}/payments', [CreditPurchaseController::class, 'storePayment'])->name('credit-purchases.payments.store');
+    Route::delete('/credit-purchases/payments/{payment}', [CreditPurchaseController::class, 'destroyPayment'])->name('credit-purchases.payments.destroy');
+    Route::get('/credit-purchases/{purchase}/receipt', [CreditPurchaseController::class, 'printReceipt'])->name('credit-purchases.receipt');
+
     // Purchase Returns
     Route::get('/purchase-returns', [PurchaseReturnController::class, 'index'])->name('purchase-returns.index');
     Route::get('/purchase-returns/create', [PurchaseReturnController::class, 'create'])->name('purchase-returns.create');
@@ -93,10 +101,20 @@ Route::middleware('auth')->group(function () {
     Route::put('/banks/transactions/{bankTransaction}', [BankTransactionController::class, 'update'])->name('banks.transactions.update');
     Route::delete('/banks/transactions/{bankTransaction}', [BankTransactionController::class, 'destroy'])->name('banks.transactions.destroy');
     Route::put('/banks/{bank}', [BankTransactionController::class, 'updateBank'])->name('banks.update');
+    Route::get('/banks/suppliers-with-due', [BankTransactionController::class, 'suppliersWithDue'])->name('banks.suppliers-with-due');
+    Route::get('/banks/customers-with-due', [BankTransactionController::class, 'customersWithDue'])->name('banks.customers-with-due');
 
     // Reports
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
+    Route::get('/reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
+    Route::get('/reports/financial', [ReportController::class, 'financial'])->name('reports.financial');
     Route::get('/reports/purchases', [ReportController::class, 'purchases'])->name('reports.purchases');
     Route::get('/reports/expenses', [ReportController::class, 'expenses'])->name('reports.expenses');
     Route::get('/reports/bank', [ReportController::class, 'bank'])->name('reports.bank');
+
+    // Ledger Reports
+    Route::get('/reports/customer-ledger', [ReportController::class, 'customerLedgerIndex'])->name('reports.customer-ledger');
+    Route::get('/reports/customer-ledger/{customer}', [ReportController::class, 'customerLedgerShow'])->name('reports.customer-ledger.show');
+    Route::get('/reports/supplier-ledger', [ReportController::class, 'supplierLedgerIndex'])->name('reports.supplier-ledger');
+    Route::get('/reports/supplier-ledger/show', [ReportController::class, 'supplierLedgerShow'])->name('reports.supplier-ledger.show');
 });
