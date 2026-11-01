@@ -289,6 +289,8 @@
                                     'code' => $it->product ? $it->product->code : '-',
                                     'quantity' => $it->quantity,
                                     'price' => (float) $it->price,
+                                    'discount_percent' => (float) $it->discount_percent,
+                                    'discount_amount' => (float) $it->discount_amount,
                                     'total' => (float) $it->total,
                                 ];
                             });
@@ -412,6 +414,7 @@
                                 <th>Product Name</th>
                                 <th>SKU / Code</th>
                                 <th class="text-end">Unit Cost</th>
+                                <th class="text-center">Discount (%)</th>
                                 <th class="text-center">Quantity</th>
                                 <th class="text-end">Subtotal</th>
                             </tr>
@@ -481,12 +484,14 @@
 
             let rows = '';
             items.forEach((item, index) => {
+                const discPct = parseFloat(item.discount_percent) || 0;
                 rows += `
                     <tr>
                         <td class="text-muted small">${index + 1}</td>
                         <td class="fw-semibold text-dark">${item.product}</td>
                         <td><span class="badge bg-light text-dark border font-monospace">${item.code}</span></td>
                         <td class="text-end">Rs. ${parseFloat(item.price).toFixed(2)}</td>
+                        <td class="text-center">${discPct > 0 ? `<span class="badge bg-warning-subtle text-dark border border-warning-subtle">${discPct}%</span>` : '<span class="text-muted small">0%</span>'}</td>
                         <td class="text-center"><span class="badge bg-secondary-subtle text-dark border px-2">${item.quantity}</span></td>
                         <td class="text-end fw-bold text-dark">Rs. ${parseFloat(item.total).toFixed(2)}</td>
                     </tr>

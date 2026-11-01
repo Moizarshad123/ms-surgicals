@@ -17,9 +17,11 @@ class Sale extends Model
         'discount',
         'total',
         'paid_amount',
+        'advance_adjusted',
         'due_date',
         'payment_status',
         'notes',
+        'created_at'
     ];
 
     protected $casts = [
@@ -28,6 +30,7 @@ class Sale extends Model
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
+        'advance_adjusted' => 'decimal:2',
     ];
 
     public function customer()

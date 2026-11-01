@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Bank;
 use App\Models\BankTransaction;
+use App\Models\BusinessCapital;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -58,10 +59,12 @@ class ReportController extends Controller
 
     public function sales(Request $request)
     {
-        [$start, $end, $period, $startDate, $endDate, $date] = $this->resolveRange($request);
+        // By default show current date (daily) as requested
+        [$start, $end, $period, $startDate, $endDate, $date] = $this->resolveRange($request, 'daily');
         $search = $request->get('search');
+        $activeTab = $request->get('tab', 'all'); // 'all', 'cash', 'bank'
 
-        $query = Sale::with(['customer', 'items.product', 'items.returnItems', 'returns'])
+        $query = Sale::with(['customer', 'items.product', 'items.returnItems', 'returns', 'payments'])
             ->whereBetween('created_at', [$start, $end]);
 
         if ($search) {
@@ -74,21 +77,76 @@ class ReportController extends Controller
             });
         }
 
-        $sales = $query->latest()->get();
+        $allSales = $query->latest()->get();
 
-        $totalSales         = $sales->sum('total');
-        $totalDiscount      = $sales->sum('discount');
-        $totalSubTotal      = $sales->sum('sub_total');
-        $totalInvoices      = $sales->count();
-        $totalSoldUnits     = (int) $sales->sum(fn($s) => $s->items->sum('quantity'));
-        $totalReturnedUnits = (int) $sales->sum(fn($s) => $s->items->sum(fn($i) => $i->returnItems->sum('quantity')));
+        // Separate Cash Sales vs Bank Sales
+        // A sale is considered "bank" if it has any bank payment (or category/method bank/bank_transfer)
+        // A sale is considered "cash" if it has cash payment or no bank payment
+        $cashSales = $allSales->filter(function ($sale) {
+            $hasBankPayment = $sale->payments->contains(fn($p) => in_array($p->payment_method, ['bank', 'bank_transfer']));
+            $hasCashPayment = $sale->payments->contains(fn($p) => in_array($p->payment_method, ['cash', 'easypaisa', 'jazzcash']));
+            // If it has cash payment or was primarily paid via cash, or has no payments yet (pure credit)
+            return $hasCashPayment || (!$hasBankPayment);
+        });
+
+        $bankSales = $allSales->filter(function ($sale) {
+            return $sale->payments->contains(fn($p) => in_array($p->payment_method, ['bank', 'bank_transfer']));
+        });
+
+        // Bank credit transactions directly recorded in banks table under customer receipt for this period
+        $bankReceiptQuery = BankTransaction::with('bank')
+            ->where('type', 'credit')
+            ->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
+
+        if ($search) {
+            $bankReceiptQuery->where(function ($q) use ($search) {
+                $q->where('person_name', 'like', "%{$search}%")
+                  ->orWhere('reference_no', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+        $bankTransactions = $bankReceiptQuery->latest('transaction_date')->latest('id')->get();
+        $totalBankCreditAmount = (float) $bankTransactions->sum('amount');
+
+        // Cash payments total in this period
+        $cashPaymentsInPeriod = (float) SalePayment::whereIn('payment_method', ['cash', 'easypaisa', 'jazzcash'])
+            ->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('amount');
+
+        // Bank payments on sales total in this period
+        $bankPaymentsOnSalesInPeriod = (float) SalePayment::whereIn('payment_method', ['bank', 'bank_transfer'])
+            ->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()])
+            ->sum('amount');
+
+        // Metrics for all sales
+        $totalSales         = $allSales->sum('total');
+        $totalDiscount      = $allSales->sum('discount');
+        $totalSubTotal      = $allSales->sum('sub_total');
+        $totalInvoices      = $allSales->count();
+        $totalSoldUnits     = (int) $allSales->sum(fn($s) => $s->items->sum('quantity'));
+        $totalReturnedUnits = (int) $allSales->sum(fn($s) => $s->items->sum(fn($i) => $i->returnItems->sum('quantity')));
         $totalItems         = max(0, $totalSoldUnits - $totalReturnedUnits);
         $averageOrder       = $totalInvoices > 0 ? ($totalSales / $totalInvoices) : 0;
 
+        // Cash Tab Metrics
+        $cashTotalSales = $cashSales->sum('total');
+        $cashTotalInvoices = $cashSales->count();
+        $cashTotalPaid = $cashSales->sum(fn($s) => $s->payments->whereIn('payment_method', ['cash', 'easypaisa', 'jazzcash'])->sum('amount'));
+
+        // Bank Tab Metrics
+        $bankTotalSales = $bankSales->sum('total');
+        $bankTotalInvoices = $bankSales->count();
+        $bankTotalPaid = $bankSales->sum(fn($s) => $s->payments->whereIn('payment_method', ['bank', 'bank_transfer'])->sum('amount'));
+
+        $sales = $allSales;
+
         return view('reports.sales', compact(
-            'sales', 'period', 'date', 'startDate', 'endDate', 'start', 'end', 'search',
+            'sales', 'allSales', 'cashSales', 'bankSales', 'bankTransactions',
+            'period', 'date', 'startDate', 'endDate', 'start', 'end', 'search', 'activeTab',
             'totalSales', 'totalDiscount', 'totalSubTotal', 'totalInvoices', 'totalItems',
-            'totalSoldUnits', 'totalReturnedUnits', 'averageOrder'
+            'totalSoldUnits', 'totalReturnedUnits', 'averageOrder',
+            'cashTotalSales', 'cashTotalInvoices', 'cashTotalPaid', 'cashPaymentsInPeriod',
+            'bankTotalSales', 'bankTotalInvoices', 'bankTotalPaid', 'bankPaymentsOnSalesInPeriod', 'totalBankCreditAmount'
         ));
     }
 
@@ -357,7 +415,15 @@ class ReportController extends Controller
         // 1. CAPITAL / INVESTMENT INTRODUCED
         $totalBankOpening = (float) Bank::sum('opening_balance');
 
+        // Cash capital introduced
+        $cashCapitalQuery = BusinessCapital::query();
+        if ($period !== 'all') {
+            $cashCapitalQuery->whereBetween('capital_date', [$start->toDateString(), $end->toDateString()]);
+        }
+        $totalCashCapitalIntroduced = (float) $cashCapitalQuery->sum('amount');
+
         $capitalQuery = BankTransaction::where('type', 'credit')
+            ->where('is_capital_transfer', false)
             ->where(function ($q) {
                 $q->where('category', 'like', '%capital%')
                   ->orWhere('category', 'like', '%investment%')
@@ -369,7 +435,7 @@ class ReportController extends Controller
             $capitalQuery->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
         }
         $periodCapitalInjected = (float) $capitalQuery->sum('amount');
-        $totalCapitalIntroduced = $totalBankOpening + $periodCapitalInjected;
+        $totalCapitalIntroduced = $totalBankOpening + $totalCashCapitalIntroduced + $periodCapitalInjected;
 
         // 2. SALES REVENUE & RECEIVABLES
         $salesQuery = Sale::with(['customer', 'items.product', 'returns', 'payments']);
@@ -493,6 +559,8 @@ class ReportController extends Controller
         });
 
         // 7. CASH IN HAND (CASH REGISTER LIQUIDITY)
+        $cashCapitalInflow = $totalCashCapitalIntroduced;
+
         $cashPaymentsQuery = SalePayment::where('payment_method', 'cash');
         if ($period !== 'all') {
             $cashPaymentsQuery->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()]);
@@ -501,28 +569,36 @@ class ReportController extends Controller
 
         // Bank Cash movements
         $bankCashWithdrawalsQuery = BankTransaction::where('type', 'debit')
+            ->where('is_capital_transfer', false)
             ->where(function ($q) {
                 $q->where('category', 'like', '%cash withdrawal%')
                   ->orWhere('description', 'like', '%cash withdrawal%');
             });
         $bankCashDepositsQuery = BankTransaction::where('type', 'credit')
+            ->where('is_capital_transfer', false)
             ->where(function ($q) {
                 $q->where('category', 'like', '%cash deposit%')
                   ->orWhere('description', 'like', '%cash deposit%');
             });
+
+        $capitalTransfersToBankQuery = BankTransaction::where('type', 'credit')
+            ->where('is_capital_transfer', true);
+
         if ($period !== 'all') {
             $bankCashWithdrawalsQuery->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
             $bankCashDepositsQuery->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
+            $capitalTransfersToBankQuery->whereBetween('transaction_date', [$start->toDateString(), $end->toDateString()]);
         }
         $cashWithdrawalsFromBank = (float) $bankCashWithdrawalsQuery->sum('amount');
         $cashDepositsToBank = (float) $bankCashDepositsQuery->sum('amount');
+        $capitalTransfersToBank = (float) $capitalTransfersToBankQuery->sum('amount');
 
         // Cash outflow for purchases not paid through bank
         $purchasesFromCash = max(0, $netPurchases - $totalSupplierBankPaid);
         // Operating expenses paid from cash
         $expensesFromCash = $totalExpenses;
 
-        $cashInHand = ($cashSalesInflow + $cashWithdrawalsFromBank) - ($purchasesFromCash + $expensesFromCash + $cashDepositsToBank + $totalCashRefunds);
+        $cashInHand = ($cashCapitalInflow + $cashSalesInflow + $cashWithdrawalsFromBank) - ($purchasesFromCash + $expensesFromCash + $cashDepositsToBank + $capitalTransfersToBank + $totalCashRefunds);
         $cashInHand = round($cashInHand, 2);
 
         // 8. INVENTORY VALUE (ASSET)
@@ -556,12 +632,12 @@ class ReportController extends Controller
 
         return view('reports.financial', compact(
             'period', 'date', 'startDate', 'endDate', 'start', 'end', 'bankId', 'allBanksList',
-            'totalCapitalIntroduced', 'totalBankOpening', 'periodCapitalInjected',
+            'totalCapitalIntroduced', 'totalBankOpening', 'totalCashCapitalIntroduced', 'periodCapitalInjected',
             'netSales', 'grossSales', 'totalDiscounts', 'salesCount', 'totalSoldUnits', 'totalSaleReturns',
             'totalPurchases', 'netPurchases', 'purchasesCount', 'totalPurchasedUnits', 'totalPurchaseReturns',
             'totalExpenses', 'expensesCount', 'expensesByCategory',
             'totalProductCostSold', 'grossProfit', 'grossMargin', 'netProfit', 'netMargin',
-            'cashInHand', 'cashSalesInflow', 'purchasesFromCash', 'expensesFromCash', 'totalCashRefunds',
+            'cashInHand', 'cashSalesInflow', 'cashCapitalInflow', 'purchasesFromCash', 'expensesFromCash', 'totalCashRefunds',
             'cashWithdrawalsFromBank', 'cashDepositsToBank',
             'totalBankBalance', 'bankDetails', 'banks',
             'periodReceivables', 'totalAllTimeReceivables', 'topDebtors',
@@ -611,8 +687,8 @@ class ReportController extends Controller
 
         $customers = $query->orderBy('name')->get()->map(function ($customer) {
             $customer->total_sales = (float) $customer->sales()->sum('total');
-            $customer->total_paid = (float) $customer->sales()->sum('paid_amount');
-            $customer->total_outstanding = max(0, $customer->total_sales - $customer->total_paid);
+            $customer->total_outstanding = (float) $customer->sales()->whereIn('payment_status', ['partial', 'due'])->sum(DB::raw('GREATEST(total - paid_amount, 0)'));
+            $customer->total_paid = max(0, round($customer->total_sales - $customer->total_outstanding, 2));
             $customer->sales_count = $customer->sales()->count();
             return $customer;
         });
@@ -636,6 +712,7 @@ class ReportController extends Controller
         $paymentsBeforePeriod = (float) SalePayment::whereHas('sale', function ($q) use ($customer) {
                 $q->where('customer_id', $customer->id);
             })
+            ->where('payment_method', '!=', 'advance_adjustment')
             ->where('payment_date', '<', $start->toDateString())
             ->sum('amount');
 
@@ -669,6 +746,7 @@ class ReportController extends Controller
         $payments = SalePayment::whereHas('sale', function ($q) use ($customer) {
                 $q->where('customer_id', $customer->id);
             })
+            ->where('payment_method', '!=', 'advance_adjustment')
             ->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()])
             ->orderBy('payment_date', 'asc')
             ->get();

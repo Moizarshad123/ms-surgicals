@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BankTransactionController;
+use App\Http\Controllers\CapitalController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CreditPurchaseController;
 use App\Http\Controllers\CreditSaleController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SalesReturnController;
@@ -41,6 +43,9 @@ Route::middleware('auth')->group(function () {
 
     // Credit Sales & Installments
     Route::get('/credit-sales', [CreditSaleController::class, 'index'])->name('credit-sales.index');
+    Route::get('/credit-sales/customers', [CreditSaleController::class, 'customersList'])->name('credit-sales.customers');
+    Route::post('/credit-sales/customers/{customer}/payments', [CreditSaleController::class, 'storeCustomerPayment'])->name('credit-sales.customers.payments.store');
+    Route::get('/credit-sales/customers/{customer}', [CreditSaleController::class, 'customerDetail'])->name('credit-sales.customer-detail');
     Route::get('/credit-sales/{sale}', [CreditSaleController::class, 'show'])->name('credit-sales.show');
     Route::post('/credit-sales/{sale}/payments', [CreditSaleController::class, 'storePayment'])->name('credit-sales.payments.store');
     Route::delete('/credit-sales/payments/{payment}', [CreditSaleController::class, 'destroyPayment'])->name('credit-sales.payments.destroy');
@@ -55,6 +60,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/sales-returns/{saleReturn}/receipt', [SalesReturnController::class, 'receipt'])->name('sales-returns.receipt');
     Route::delete('/sales-returns/{saleReturn}', [SalesReturnController::class, 'destroy'])->name('sales-returns.destroy');
 
+    // Initial Capital & Investments
+    Route::get('/capital', [CapitalController::class, 'index'])->name('capital.index');
+    Route::post('/capital', [CapitalController::class, 'store'])->name('capital.store');
+    Route::put('/capital/{capital}', [CapitalController::class, 'update'])->name('capital.update');
+    Route::delete('/capital/{capital}', [CapitalController::class, 'destroy'])->name('capital.destroy');
+    Route::post('/capital/transfer-to-bank', [CapitalController::class, 'transferToBank'])->name('capital.transfer-to-bank');
+
     // Products
     Route::resource('products', ProductController::class)->except(['show']);
 
@@ -67,6 +79,7 @@ Route::middleware('auth')->group(function () {
     // Purchases
     Route::get('/purchases', [PurchaseController::class, 'index'])->name('purchases.index');
     Route::get('/purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
+    Route::get('/purchases/supplier-advance', [PurchaseController::class, 'getSupplierAdvance'])->name('purchases.supplier-advance');
     Route::post('/purchases', [PurchaseController::class, 'store'])->name('purchases.store');
     Route::get('/purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
     Route::put('/purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
@@ -74,6 +87,9 @@ Route::middleware('auth')->group(function () {
 
     // Credit Purchases & Installments
     Route::get('/credit-purchases', [CreditPurchaseController::class, 'index'])->name('credit-purchases.index');
+    Route::get('/credit-purchases/suppliers', [CreditPurchaseController::class, 'suppliersList'])->name('credit-purchases.suppliers');
+    Route::post('/credit-purchases/suppliers/payments', [CreditPurchaseController::class, 'storeSupplierPayment'])->name('credit-purchases.suppliers.payments.store');
+    Route::get('/credit-purchases/suppliers/{supplierName}', [CreditPurchaseController::class, 'supplierDetail'])->name('credit-purchases.supplier-detail');
     Route::get('/credit-purchases/{purchase}', [CreditPurchaseController::class, 'show'])->name('credit-purchases.show');
     Route::post('/credit-purchases/{purchase}/payments', [CreditPurchaseController::class, 'storePayment'])->name('credit-purchases.payments.store');
     Route::delete('/credit-purchases/payments/{payment}', [CreditPurchaseController::class, 'destroyPayment'])->name('credit-purchases.payments.destroy');
@@ -92,6 +108,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
     Route::get('/expenses/create', [ExpenseController::class, 'create'])->name('expenses.create');
     Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+    Route::get('/expenses/{expense}/edit', [ExpenseController::class, 'edit'])->name('expenses.edit');
+    Route::put('/expenses/{expense}', [ExpenseController::class, 'update'])->name('expenses.update');
     Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
     Route::post('/expense-categories', [ExpenseController::class, 'storeCategory'])->name('expense-categories.store');
 
@@ -117,4 +135,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/customer-ledger/{customer}', [ReportController::class, 'customerLedgerShow'])->name('reports.customer-ledger.show');
     Route::get('/reports/supplier-ledger', [ReportController::class, 'supplierLedgerIndex'])->name('reports.supplier-ledger');
     Route::get('/reports/supplier-ledger/show', [ReportController::class, 'supplierLedgerShow'])->name('reports.supplier-ledger.show');
+
+    // Purchase Orders
+    Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
+    Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
+    Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
+    Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
+    Route::get('/purchase-orders/{purchaseOrder}/edit', [PurchaseOrderController::class, 'edit'])->name('purchase-orders.edit');
+    Route::put('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'update'])->name('purchase-orders.update');
+    Route::delete('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])->name('purchase-orders.destroy');
+    Route::get('/purchase-orders/{purchaseOrder}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
 });

@@ -3,7 +3,54 @@
 @section('page-title', 'Edit Purchase')
 
 @push('styles')
+{{-- Local copy (no internet needed): public/admin/vendor/tom-select/ --}}
+<link href="{{ asset('admin/vendor/tom-select/tom-select.bootstrap5.min.css') }}" rel="stylesheet">
 <style>
+    /* Searchable dropdown theming */
+    .ts-wrapper { display: block; width: 100%; }
+    .ts-wrapper.form-select, .ts-wrapper.form-select-sm {
+        padding: 0 !important; border: 0 !important; background: none !important;
+        box-shadow: none !important; height: auto !important; min-height: 0 !important;
+    }
+    .ts-wrapper.single .ts-control {
+        min-height: 31px;
+        padding: 0.25rem 1.75rem 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        border-radius: 0.375rem;
+        background: #fff;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+    .ts-wrapper.single .ts-control .item {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: #ff6e40;
+        box-shadow: 0 0 0 3px rgba(255, 110, 64, 0.15);
+    }
+    .ts-dropdown {
+        z-index: 2000 !important;
+        font-size: 0.875rem;
+        background: #fff !important;
+        min-width: 380px;
+        height: auto !important;
+        padding: 0 !important;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .ts-dropdown .ts-dropdown-content { max-height: 260px; background: #fff; }
+    .ts-dropdown .option {
+        padding: 7px 12px !important;
+        line-height: 1.4 !important;
+        height: auto !important;
+        white-space: normal;
+        background: #fff;
+    }
+    .ts-dropdown .option.active { background: #fff1ec !important; color: #ff6e40; }
+    .ts-dropdown .no-results { padding: 8px 12px; }
+
     /* Remove up/down spinner arrows from number inputs */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
@@ -152,11 +199,12 @@
                         <table class="table align-middle mb-0" id="itemsTable">
                             <thead>
                                 <tr>
-                                    <th style="min-width: 220px;">Product Name</th>
-                                    <th style="width: 120px;">Quantity</th>
-                                    <th style="width: 150px;">Unit Price (Rs.)</th>
-                                    <th style="width: 130px;" class="text-end">Subtotal</th>
-                                    <th style="width: 50px;"></th>
+                                    <th style="min-width: 200px;">Product Name</th>
+                                    <th style="width: 100px;">Quantity</th>
+                                    <th style="width: 130px;">Unit Price (Rs.)</th>
+                                    <th style="width: 110px;">Discount (%)</th>
+                                    <th style="width: 130px;" class="text-end">Subtotal (Rs.)</th>
+                                    <th style="width: 45px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="itemsBody">
@@ -192,6 +240,14 @@
                             <span class="text-muted small">Total Units:</span>
                             <span class="fw-semibold text-dark" id="summaryUnitsCount">0</span>
                         </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2" id="summarySubtotalRow" style="display:none;">
+                            <span class="text-muted small">Subtotal:</span>
+                            <span class="fw-semibold text-dark">Rs. <span id="summarySubtotal">0.00</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2 text-danger" id="summaryDiscountRow" style="display:none;">
+                            <span class="small fw-semibold">Item Discounts:</span>
+                            <span class="fw-semibold">- Rs. <span id="summaryDiscount">0.00</span></span>
+                        </div>
                         <hr class="my-2 text-muted opacity-25">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="fw-bold text-dark">Grand Total:</span>
@@ -199,11 +255,11 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2 pt-2 border-top">
                             <span class="text-muted small">Paid Amount:</span>
-                            <span class="fw-semibold text-success">Rs. {{ number_format($purchase->paid_amount) }}</span>
+                            <span class="fw-semibold text-success">Rs. {{ number_format($purchase->paid_amount, 2) }}</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="small fw-semibold text-danger">Balance Due:</span>
-                            <span class="fw-bold text-danger">Rs. {{ number_format($purchase->due_amount) }}</span>
+                            <span class="fw-bold text-danger" id="remainingDueDisplay">Rs. {{ number_format($purchase->due_amount, 2) }}</span>
                         </div>
                     </div>
 
@@ -237,14 +293,19 @@
 @endsection
 
 @push('scripts')
+{{-- Local copy (no internet needed): public/admin/vendor/tom-select/ --}}
+<script src="{{ asset('admin/vendor/tom-select/tom-select.complete.min.js') }}"></script>
 <script>
     const existingPurchaseItems = {!! json_encode($purchase->items->map(function ($it) {
         return [
-            'product_id' => $it->product_id,
-            'quantity'   => (int) $it->quantity,
-            'price'      => (float) $it->price,
+            'product_id'       => $it->product_id,
+            'quantity'         => (int) $it->quantity,
+            'price'            => (float) $it->price,
+            'discount_percent' => (float) $it->discount_percent,
         ];
     })) !!};
+
+    const paidAmount = {{ (float) $purchase->paid_amount }};
 
     const products = {!! json_encode($products->map(function($p) {
         return [
@@ -258,7 +319,16 @@
 
     let rowIndex = 0;
 
-    function addRow(productId = '', quantity = 1, price = null) {
+    function initSearchSelect(el, placeholder = 'Search...') {
+        return new TomSelect(el, {
+            placeholder: placeholder,
+            maxOptions: null,          // show all matches
+            copyClassesToDropdown: false, // avoids form-select styles breaking the dropdown
+            dropdownParent: 'body',    // prevents clipping inside .table-responsive
+        });
+    }
+
+    function addRow(productId = '', quantity = 1, price = null, discountPercent = 0) {
         const tbody = document.getElementById('itemsBody');
         const i = rowIndex++;
 
@@ -279,13 +349,20 @@
                 </select>
             </td>
             <td>
-                <input type="number" name="items[${i}][quantity]" class="form-control form-control-sm qty-input" min="1" max="99999" value="${quantity}" oninput="calcRow(${i})" required>
+                <input type="number" name="items[${i}][quantity]" class="form-control form-control-sm qty-input text-center" min="1" max="99999" value="${quantity}" oninput="calcRow(${i})" required>
             </td>
             <td>
-                <input type="number" step="0.01" name="items[${i}][price]" class="form-control form-control-sm price-input" min="0" max="99999" value="${parseFloat(defaultPrice).toFixed(2)}" oninput="calcRow(${i})" required id="price-${i}">
+                <input type="number" step="0.01" name="items[${i}][price]" class="form-control form-control-sm price-input text-end" min="0" max="99999" value="${parseFloat(defaultPrice).toFixed(2)}" oninput="calcRow(${i})" required id="price-${i}">
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" step="0.01" name="items[${i}][discount_percent]" class="form-control form-control-sm discount-input text-end" min="0" max="100" value="${parseFloat(discountPercent || 0)}" placeholder="0" oninput="calcRow(${i})" id="discount-${i}">
+                    <span class="input-group-text px-1 text-muted" style="font-size:0.75rem;">%</span>
+                </div>
             </td>
             <td class="text-end fw-bold text-dark align-middle">
                 Rs. <span id="total-${i}">0.00</span>
+                <div class="text-muted small" style="font-size:0.72rem; font-weight:normal;" id="disc-note-${i}"></div>
             </td>
             <td class="text-center align-middle">
                 <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removeRow(${i})" title="Remove item">
@@ -294,21 +371,22 @@
             </td>
         `;
         tbody.appendChild(tr);
+        initSearchSelect(tr.querySelector('.product-select'), 'Search product...');
         calcRow(i);
     }
 
     function removeRow(i) {
         const row = document.getElementById(`row-${i}`);
         if (row) {
+            row.querySelector('.product-select')?.tomselect?.destroy();
             row.remove();
             calcGrandTotal();
         }
     }
 
     function updatePrice(select, i) {
-        const selectedOption = select.options[select.selectedIndex];
-        const price = selectedOption?.dataset.price || 0;
-        document.getElementById(`price-${i}`).value = parseFloat(price).toFixed(2);
+        const product = products.find(p => p.id == select.value);
+        document.getElementById(`price-${i}`).value = parseFloat(product ? product.price : 0).toFixed(2);
         calcRow(i);
     }
 
@@ -318,19 +396,39 @@
 
         const qtyInput = row.querySelector(`[name="items[${i}][quantity]"]`);
         const priceInput = document.getElementById(`price-${i}`);
+        const discountInput = document.getElementById(`discount-${i}`);
+        const discNote = document.getElementById(`disc-note-${i}`);
 
         const qty = parseFloat(qtyInput?.value) || 0;
         const price = parseFloat(priceInput?.value) || 0;
-        const total = (qty * price).toFixed(2);
+        const discountPercent = parseFloat(discountInput?.value) || 0;
+
+        // Step 1: discount per unit = price * (discountPercent / 100)
+        const discountPerUnit = price * (discountPercent / 100);
+        // Step 2: discounted unit price = price - discountPerUnit
+        const discountedPrice = Math.max(0, price - discountPerUnit);
+        // Step 3: final subtotal = discountedPrice * qty
+        const lineTotal = discountedPrice * qty;
 
         const totalEl = document.getElementById(`total-${i}`);
-        if (totalEl) totalEl.innerText = parseFloat(total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (totalEl) totalEl.innerText = lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        if (discNote) {
+            if (discountPercent > 0) {
+                const totalItemDiscount = (price * qty) - lineTotal;
+                discNote.innerText = `(-Rs. ${totalItemDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+            } else {
+                discNote.innerText = '';
+            }
+        }
 
         calcGrandTotal();
     }
 
     function calcGrandTotal() {
         let total = 0;
+        let rawSubtotal = 0;
+        let totalDiscount = 0;
         let totalUnits = 0;
         let itemCount = 0;
 
@@ -338,9 +436,20 @@
             itemCount++;
             const qtyInput = row.querySelector('.qty-input');
             const priceInput = row.querySelector('.price-input');
+            const discountInput = row.querySelector('.discount-input');
+
             const qty = parseFloat(qtyInput?.value) || 0;
             const price = parseFloat(priceInput?.value) || 0;
-            total += (qty * price);
+            const discountPercent = parseFloat(discountInput?.value) || 0;
+
+            const discountPerUnit = price * (discountPercent / 100);
+            const discountedPrice = Math.max(0, price - discountPerUnit);
+            const lineTotal = discountedPrice * qty;
+            const lineRaw = price * qty;
+
+            rawSubtotal += lineRaw;
+            totalDiscount += (lineRaw - lineTotal);
+            total += lineTotal;
             totalUnits += qty;
         });
 
@@ -348,12 +457,32 @@
         document.getElementById('summaryItemsCount').innerText = itemCount;
         document.getElementById('summaryUnitsCount').innerText = totalUnits;
         document.getElementById('itemCountLabel').innerText = itemCount;
+
+        const subtotalRow = document.getElementById('summarySubtotalRow');
+        const discountRow = document.getElementById('summaryDiscountRow');
+        if (subtotalRow && discountRow) {
+            if (totalDiscount > 0) {
+                subtotalRow.style.display = 'flex';
+                discountRow.style.display = 'flex';
+                document.getElementById('summarySubtotal').innerText = rawSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('summaryDiscount').innerText = totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else {
+                subtotalRow.style.display = 'none';
+                discountRow.style.display = 'none';
+            }
+        }
+
+        const remainingDue = Math.max(0, total - paidAmount);
+        const dueEl = document.getElementById('remainingDueDisplay');
+        if (dueEl) {
+            dueEl.innerText = 'Rs. ' + remainingDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
     }
 
     // Preload existing items
     if (existingPurchaseItems.length > 0) {
         existingPurchaseItems.forEach(item => {
-            addRow(item.product_id, item.quantity, item.price);
+            addRow(item.product_id, item.quantity, item.price, item.discount_percent);
         });
     } else {
         addRow();
@@ -389,4 +518,3 @@
     });
 </script>
 @endpush
-

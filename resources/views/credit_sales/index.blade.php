@@ -105,7 +105,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Total Credit Billed</div>
-                    <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalCreditBilled) }}</div>
+                    <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalCreditBilled, 2) }}</div>
                     <div class="small text-muted mt-1">Gross total of credit sales</div>
                 </div>
                 <div class="credit-kpi-icon bg-primary bg-opacity-10 text-primary">
@@ -118,7 +118,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Total Collected</div>
-                    <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalCreditCollected) }}</div>
+                    <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalCreditCollected, 2) }}</div>
                     <div class="small text-muted mt-1">Advance + installments</div>
                 </div>
                 <div class="credit-kpi-icon bg-success bg-opacity-10 text-success">
@@ -131,7 +131,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Remaining Outstanding</div>
-                    <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($totalOutstandingDue) }}</div>
+                    <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($totalOutstandingDue, 2) }}</div>
                     <div class="small text-danger mt-1 fw-medium">
                         @if($totalOverdueCount > 0)
                             <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ $totalOverdueCount }} Overdue
@@ -153,6 +153,10 @@
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <!-- Status Filter Tabs -->
                 <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ route('credit-sales.customers') }}" 
+                       class="filter-tab-btn" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">
+                        <i class="bi bi-people-fill"></i> View by Customer
+                    </a>
                     <a href="{{ route('credit-sales.index', array_merge(request()->query(), ['status' => 'pending'])) }}" 
                        class="filter-tab-btn {{ $status === 'pending' ? 'active' : '' }}">
                         <i class="bi bi-hourglass-split"></i> Pending ({{ $totalCreditSalesCount }})
@@ -245,16 +249,16 @@
                                     @endif
                                 </td>
                                 <td class="text-end fw-semibold text-dark">
-                                    Rs. {{ number_format($sale->total) }}
+                                    Rs. {{ number_format($sale->total, 2) }}
                                 </td>
                                 <td class="text-end text-success fw-semibold">
-                                    Rs. {{ number_format($sale->paid_amount) }}
+                                    Rs. {{ number_format($sale->paid_amount, 2) }}
                                     @if($sale->payments->count() > 1)
                                         <div class="small text-muted">({{ $sale->payments->count() }} payments)</div>
                                     @endif
                                 </td>
                                 <td class="text-end fw-bold {{ $due > 0 ? 'text-danger' : 'text-muted' }}">
-                                    Rs. {{ number_format($due) }}
+                                    Rs. {{ number_format($due, 2) }}
                                 </td>
                                 <td class="text-center">
                                     @if($sale->payment_status === 'paid' || $due <= 0)
@@ -364,10 +368,13 @@
                     <!-- Payment Amount Input -->
                     <div class="mb-3">
                         <label class="form-label small fw-semibold text-dark">
-                            Installment Amount (Rs.) <span class="text-danger">*</span>
+                            Payment Amount (Rs.) <span class="text-danger">*</span>
                         </label>
                         <input type="number" id="inputPaymentAmount" class="form-control form-control-lg fw-bold text-end" 
-                               step="0.01" min="1" required placeholder="0.00">
+                               step="0.01" min="0.01" required placeholder="0.00">
+                        <div class="form-text text-muted mt-1 small">
+                            <i class="bi bi-info-circle me-1"></i>Any amount exceeding the balance due will be stored as <strong>Customer Advance Balance</strong>.
+                        </div>
                     </div>
 
                     <!-- Payment Date & Method -->

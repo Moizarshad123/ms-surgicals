@@ -373,7 +373,7 @@
                         </td>
                         <td></td>
                         <td class="text-end" style="font-weight: bold; color: #ffdf7e;">
-                            {{ number_format($openingBalance, 1) }}
+                            {{ number_format($openingBalance, 2) }}
                         </td>
                     </tr>
 
@@ -398,7 +398,7 @@
                                 {{ $tx['credit'] > 0 ? number_format($tx['credit'], 2) : '' }}
                             </td>
                             <td class="text-end">
-                                {{ number_format($tx['balance'], 1) }}
+                                {{ number_format($tx['balance'], 2) }}
                             </td>
                         </tr>
                     @empty
@@ -422,7 +422,7 @@
                             {{ number_format($totalCredit, 2) }}
                         </td>
                         <td class="text-end fw-bold">
-                            {{ number_format($closingBalance, 1) }}
+                            {{ number_format($closingBalance, 2) }}
                         </td>
                     </tr>
                 </tbody>

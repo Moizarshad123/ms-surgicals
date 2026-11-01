@@ -112,13 +112,27 @@
             <div class="card form-card mb-4">
                 <div class="card-header bg-white border-bottom py-3">
                     <div class="section-title mb-0">
-                        <i class="bi bi-person"></i> Customer Information
+                        <i class="bi bi-person"></i> Customer &amp; Order Details
                     </div>
                 </div>
                 <div class="card-body p-3">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-semibold text-dark">Customer Name</label>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-dark">
+                                <i class="bi bi-calendar-event me-1 text-primary"></i> Order Date <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" name="order_date" id="orderDateInput" class="form-control fw-semibold"
+                                   value="{{ old('order_date', $sale->created_at ? $sale->created_at->format('Y-m-d') : date('Y-m-d')) }}" required>
+                            <div class="text-muted small mt-1" style="font-size: 0.75rem;">Change to previous or future date if needed</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small fw-semibold text-dark mb-0">Customer Name</label>
+                                <span id="customerAdvanceBadge" class="badge bg-success-subtle text-success border border-success-subtle d-none" style="font-size: 0.72rem;">
+                                    <i class="bi bi-wallet2 me-1"></i>Advance: Rs. <span id="customerAdvanceAmount">0.00</span>
+                                </span>
+                            </div>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-person"></i></span>
                                 <input type="text" name="customer_name" id="custNameInput" list="customersDatalist" class="form-control"
@@ -126,13 +140,13 @@
                                        value="{{ old('customer_name', $sale->customer->name ?? 'Walk-in Customer') }}" autocomplete="off">
                                 <datalist id="customersDatalist">
                                     @foreach($customers as $c)
-                                        <option value="{{ $c->name }}" data-phone="{{ $c->phone }}">
+                                        <option value="{{ $c->name }}" data-phone="{{ $c->phone }}" data-advance="{{ (float)$c->advance_balance }}">
                                     @endforeach
                                 </datalist>
                             </div>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small fw-semibold text-dark">Phone Number</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="bi bi-telephone"></i></span>
@@ -161,8 +175,9 @@
                             <thead>
                                 <tr>
                                     <th style="min-width: 220px;">Product Name</th>
-                                    <th style="width: 120px;">Quantity</th>
-                                    <th style="width: 150px;">Unit Price (Rs.)</th>
+                                    <th style="width: 100px;">Quantity</th>
+                                    <th style="width: 130px;">Unit Price (Rs.)</th>
+                                    <th style="width: 110px;">Discount (%)</th>
                                     <th style="width: 130px;" class="text-end">Subtotal</th>
                                     <th style="width: 50px;"></th>
                                 </tr>
@@ -200,16 +215,22 @@
                             <span class="text-muted small">Subtotal:</span>
                             <span class="fw-bold text-dark">Rs. <span id="summarySubTotal">0.00</span></span>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label small text-muted mb-1">Discount (Rs.)</label>
-                            <input type="number" step="0.01" min="0" name="discount" id="discountInput" class="form-control form-control-sm text-end fw-semibold text-danger"
-                                   value="{{ old('discount', $sale->discount) }}" oninput="calcTotals()">
+                        <div class="d-flex justify-content-between align-items-center mb-2 text-danger" id="summaryDiscountRow" style="display:none;">
+                            <span class="small fw-semibold">Item Discounts:</span>
+                            <span class="fw-semibold">- Rs. <span id="summaryDiscount">0.00</span></span>
                         </div>
                         <hr class="my-2 text-muted opacity-25">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="fw-bold text-dark fs-6">Grand Total:</span>
                             <span class="fw-bold text-success fs-5">Rs. <span id="grandTotal">0.00</span></span>
                         </div>
+
+                        @if($sale->advance_adjusted > 0)
+                        <div class="d-flex justify-content-between align-items-center mb-2 text-success py-1 px-2 rounded-2" style="background: rgba(40,167,69,0.08);">
+                            <span class="small fw-semibold"><i class="bi bi-wallet2 me-1"></i> Advance Payment Adjusted:</span>
+                            <span class="fw-bold">- Rs. {{ number_format($sale->advance_adjusted, 2) }}</span>
+                        </div>
+                        @endif
 
                         <div class="mb-2">
                             <label class="form-label small fw-semibold text-dark mb-1">Paid Amount (Rs.)</label>
@@ -258,9 +279,10 @@
     // Product catalog with current stock adjusted for this sale's current quantities
      const existingSaleItems = {!! json_encode($sale->items->map(function ($it) {
         return [
-            'product_id' => $it->product_id,
-            'quantity'   => (int) $it->quantity,
-            'price'      => (float) $it->price,
+            'product_id'       => $it->product_id,
+            'quantity'         => (int) $it->quantity,
+            'price'            => (float) $it->price,
+            'discount_percent' => (float) ($it->discount_percent ?? 0),
         ];
     })) !!};
 
@@ -277,7 +299,7 @@
 
     let rowIndex = 0;
 
-    function addRow(productId = '', quantity = 1, price = null) {
+    function addRow(productId = '', quantity = 1, price = null, discountPercent = 0) {
         const tbody = document.getElementById('itemsBody');
         const i = rowIndex++;
 
@@ -298,13 +320,20 @@
                 </select>
             </td>
             <td>
-                <input type="number" name="items[${i}][quantity]" class="form-control form-control-sm qty-input" min="1" max="99999" value="${quantity}" oninput="calcRow(${i})" required>
+                <input type="number" name="items[${i}][quantity]" class="form-control form-control-sm qty-input text-center" min="1" max="99999" value="${quantity}" oninput="calcRow(${i})" required>
             </td>
             <td>
-                <input type="number" step="0.01" name="items[${i}][price]" class="form-control form-control-sm price-input" min="0" max="99999" value="${parseFloat(defaultPrice).toFixed(2)}" oninput="calcRow(${i})" required id="price-${i}">
+                <input type="number" step="0.01" name="items[${i}][price]" class="form-control form-control-sm price-input text-end" min="0" max="99999" value="${parseFloat(defaultPrice).toFixed(2)}" oninput="calcRow(${i})" required id="price-${i}">
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" step="0.01" name="items[${i}][discount_percent]" class="form-control form-control-sm discount-input text-end" min="0" max="100" value="${parseFloat(discountPercent || 0)}" placeholder="0" oninput="calcRow(${i})" id="discount-${i}">
+                    <span class="input-group-text px-1 text-muted" style="font-size:0.75rem;">%</span>
+                </div>
             </td>
             <td class="text-end fw-bold text-dark align-middle">
                 Rs. <span id="total-${i}">0.00</span>
+                <div class="text-muted small" style="font-size:0.72rem; font-weight:normal;" id="disc-note-${i}"></div>
             </td>
             <td class="text-center align-middle">
                 <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="removeRow(${i})" title="Remove item">
@@ -337,19 +366,39 @@
 
         const qtyInput = row.querySelector(`[name="items[${i}][quantity]"]`);
         const priceInput = document.getElementById(`price-${i}`);
+        const discountInput = document.getElementById(`discount-${i}`);
+        const discNote = document.getElementById(`disc-note-${i}`);
 
         const qty = parseFloat(qtyInput?.value) || 0;
         const price = parseFloat(priceInput?.value) || 0;
-        const total = (qty * price).toFixed(2);
+        const discountPercent = parseFloat(discountInput?.value) || 0;
+
+        // Step 1: discount per unit = price * (discountPercent / 100)
+        const discountPerUnit = price * (discountPercent / 100);
+        // Step 2: discounted unit price = price - discountPerUnit
+        const discountedPrice = Math.max(0, price - discountPerUnit);
+        // Step 3: final subtotal = discountedPrice * qty
+        const lineTotal = discountedPrice * qty;
 
         const totalEl = document.getElementById(`total-${i}`);
-        if (totalEl) totalEl.innerText = parseFloat(total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (totalEl) totalEl.innerText = parseFloat(lineTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        if (discNote) {
+            if (discountPercent > 0) {
+                const totalItemDiscount = (price * qty) - lineTotal;
+                discNote.innerText = `(-Rs. ${totalItemDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+            } else {
+                discNote.innerText = '';
+            }
+        }
 
         calcTotals();
     }
 
     function calcTotals() {
-        let subtotal = 0;
+        let rawSubtotal = 0;
+        let totalDiscount = 0;
+        let total = 0;
         let totalUnits = 0;
         let itemCount = 0;
 
@@ -357,18 +406,39 @@
             itemCount++;
             const qtyInput = row.querySelector('.qty-input');
             const priceInput = row.querySelector('.price-input');
+            const discountInput = row.querySelector('.discount-input');
+
             const qty = parseFloat(qtyInput?.value) || 0;
             const price = parseFloat(priceInput?.value) || 0;
-            subtotal += (qty * price);
+            const discountPercent = parseFloat(discountInput?.value) || 0;
+
+            const discountPerUnit = price * (discountPercent / 100);
+            const discountedPrice = Math.max(0, price - discountPerUnit);
+            const lineTotal = discountedPrice * qty;
+            const lineRaw = price * qty;
+
+            rawSubtotal += lineRaw;
+            totalDiscount += (lineRaw - lineTotal);
+            total += lineTotal;
             totalUnits += qty;
         });
 
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const grandTotal = Math.max(0, subtotal - discount);
+        const grandTotal = total;
         const paidAmount = parseFloat(document.getElementById('paidAmountInput').value) || 0;
         const dueAmount = Math.max(0, grandTotal - paidAmount);
 
-        document.getElementById('summarySubTotal').innerText = subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('summarySubTotal').innerText = rawSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        const discRow = document.getElementById('summaryDiscountRow');
+        if (discRow) {
+            if (totalDiscount > 0) {
+                discRow.style.display = 'flex';
+                document.getElementById('summaryDiscount').innerText = totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else {
+                discRow.style.display = 'none';
+            }
+        }
+
         document.getElementById('grandTotal').innerText = grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         document.getElementById('dueAmountDisplay').innerText = 'Rs. ' + dueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         document.getElementById('summaryUnitsCount').innerText = totalUnits;
@@ -389,20 +459,30 @@
     // Preload existing items
     if (existingSaleItems.length > 0) {
         existingSaleItems.forEach(item => {
-            addRow(item.product_id, item.quantity, item.price);
+            addRow(item.product_id, item.quantity, item.price, item.discount_percent);
         });
     } else {
         addRow();
     }
 
-    // Auto-fill phone when selecting customer from datalist
-    document.getElementById('custNameInput').addEventListener('input', function() {
-        const val = this.value;
+    // Auto-fill phone and display advance when selecting customer from datalist
+    function updateCustomerAdvanceBadge() {
+        const val = document.getElementById('custNameInput').value;
         const opt = document.querySelector(`#customersDatalist option[value="${val}"]`);
+        const badge = document.getElementById('customerAdvanceBadge');
+        const amountSpan = document.getElementById('customerAdvanceAmount');
         if (opt && opt.dataset.phone) {
             document.getElementById('custPhoneInput').value = opt.dataset.phone;
         }
-    });
+        if (opt && parseFloat(opt.dataset.advance) > 0) {
+            amountSpan.innerText = parseFloat(opt.dataset.advance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            badge.classList.remove('d-none');
+        } else {
+            badge.classList.add('d-none');
+        }
+    }
+    document.getElementById('custNameInput').addEventListener('input', updateCustomerAdvanceBadge);
+    updateCustomerAdvanceBadge();
 
     // Form submit validation
     document.getElementById('saleEditForm').addEventListener('submit', function (e) {

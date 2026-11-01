@@ -107,7 +107,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between shadow-sm border-start border-4 border-primary">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Total Credit Billed</div>
-                    <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalCreditBilled) }}</div>
+                    <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalCreditBilled, 2) }}</div>
                     <div class="small text-muted mt-1">Gross total of credit purchases</div>
                 </div>
                 <div class="credit-kpi-icon bg-primary bg-opacity-10 text-primary">
@@ -121,7 +121,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between shadow-sm border-start border-4 border-success">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Total Paid to Suppliers</div>
-                    <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalCreditPaid) }}</div>
+                    <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalCreditPaid, 2) }}</div>
                     <div class="small text-muted mt-1">Installments cleared</div>
                 </div>
                 <div class="credit-kpi-icon bg-success bg-opacity-10 text-success">
@@ -135,7 +135,7 @@
             <div class="credit-kpi-card d-flex align-items-center justify-content-between shadow-sm border-start border-4 border-danger">
                 <div>
                     <div class="text-muted small fw-semibold text-uppercase">Outstanding Payables</div>
-                    <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($totalOutstandingDue) }}</div>
+                    <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($totalOutstandingDue, 2) }}</div>
                     <div class="small text-muted mt-1">
                         @if($totalOverdueCount > 0)
                             <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> {{ $totalOverdueCount }} overdue</span>
@@ -157,6 +157,11 @@
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <!-- Status Filter Tabs -->
                 <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ route('credit-purchases.suppliers') }}" 
+                       class="filter-tab-btn" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">
+                        <i class="bi bi-people-fill"></i> View by Supplier
+                    </a>
+
                     <a href="{{ route('credit-purchases.index', array_merge(request()->except('page'), ['status' => 'pending'])) }}" 
                        class="filter-tab-btn {{ $status === 'pending' ? 'active' : '' }}">
                         <i class="bi bi-hourglass-split"></i> Pending Due
@@ -305,12 +310,12 @@
 
                                 <!-- Total Billed -->
                                 <td class="text-end fw-bold text-dark">
-                                    Rs. {{ number_format($purchase->total) }}
+                                    Rs. {{ number_format($purchase->total, 2) }}
                                 </td>
 
                                 <!-- Paid Amount -->
                                 <td class="text-end fw-semibold text-success">
-                                    Rs. {{ number_format($purchase->paid_amount) }}
+                                    Rs. {{ number_format($purchase->paid_amount, 2) }}
                                     @if($purchase->payments->count() > 1)
                                         <div class="small text-muted" style="font-size:0.75rem;">
                                             ({{ $purchase->payments->count() }} installments)
@@ -320,7 +325,7 @@
 
                                 <!-- Balance Due -->
                                 <td class="text-end fw-bold {{ $purchase->due_amount > 0 ? 'text-danger' : 'text-muted' }}">
-                                    Rs. {{ number_format($purchase->due_amount) }}
+                                    Rs. {{ number_format($purchase->due_amount, 2) }}
                                 </td>
 
                                 <!-- Status Badge -->
@@ -427,10 +432,13 @@
                     <!-- Payment Amount Input -->
                     <div class="mb-3">
                         <label class="form-label small fw-semibold text-dark">
-                            Installment Amount (Rs.) <span class="text-danger">*</span>
+                            Payment Amount (Rs.) <span class="text-danger">*</span>
                         </label>
                         <input type="number" id="inputPaymentAmount" class="form-control form-control-lg fw-bold text-end" 
-                               step="0.01" min="1" required placeholder="0.00">
+                               step="0.01" min="0.01" required placeholder="0.00">
+                        <div class="form-text text-muted mt-1 small">
+                            <i class="bi bi-info-circle me-1"></i>Any amount exceeding the balance due will be recorded as <strong>Advance Balance</strong> with this supplier.
+                        </div>
                     </div>
 
                     <!-- Payment Date & Method -->

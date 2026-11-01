@@ -37,20 +37,36 @@ class Controller extends BaseController
     {
         $logoBase64 = $this->getReceiptLogoBase64();
 
-        $logoHtml = $logoBase64
-            ? '<img style="width:150px; height:120px; display:block; margin-left:60px;" src="data:image/png;base64,' . $logoBase64 . '"/>'
-            : '<div class="text-center shop-name">TG SURGICALS</div>';
+        $logoHtml = '';
+        // if ($logoBase64) {
+        //     $logoHtml = '<div style="text-align:center; margin-bottom:4px;">
+        //         <img src="data:image/png;base64,' . $logoBase64 . '" style="width:75px; height:auto; display:inline-block;" />
+        //     </div>';
+        // } else {
+        //     $logoHtml = '<div class="text-center shop-name" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:2px;">TG SURGICALS</div>';
+        // }
+        if ($logoBase64) {
+            $logoHtml = '<div style="text-align:center; margin-bottom:4px;">
+                <img src="data:image/png;base64,' . $logoBase64 . '" style="width:75px; height:auto; display:inline-block;" />
+            </div>';
+        } else {
+            $logoHtml = '<div class="text-center shop-name" style="text-align:center; font-size:15px; font-weight:bold; margin-bottom:2px;">TG SURGICALS</div>';
+        }
 
-        $html = $logoHtml . '
-            <p class="text-center" style="margin-top:0px; font-size:12px; margin-left:-20px;">
+        // $html = $logoHtml . '
+        $html = '
+      
+
+            <br><p class="text-center" style="text-align:center; margin:0 0 4px 0; font-size:11px; line-height:1.3;">
+            <p class="text-center" style="text-align:center; margin:0 0 4px 0; font-size:11px; line-height:1.3;">
                 <span>Shop 58, Mirwah Road TandoAllahyar.<br></span>
                 <span>Phone # 0334-2830393<br></span>
             </p>
 
-            <p class="text-center receipt-title">' . e($receiptTitle) . '</p>';
+            <p class="text-center receipt-title" style="text-align:center; font-size:13px; font-weight:bold; margin:4px 0 2px 0;">' . e($receiptTitle) . '</p>';
 
         if ($documentNo) {
-            $html .= '<p class="text-center invoice-no">' . e($documentNo) . '</p>';
+            $html .= '<p class="text-center invoice-no" style="text-align:center; font-size:11px; font-weight:bold; margin:0 0 4px 0;">' . e($documentNo) . '</p>';
         }
 
         $html .= '<hr class="solid-line">';

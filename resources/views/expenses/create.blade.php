@@ -152,9 +152,60 @@
                         </div>
                     </div>
 
+                    {{-- Payment Method --}}
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark">Payment Type <span class="text-danger">*</span></label>
+                        <select name="payment_method" id="expPayMethod" class="form-select @error('payment_method') is-invalid @enderror" onchange="updatePaymentUI()" required>
+                            <option value="cash" @selected(old('payment_method', 'cash') === 'cash')>
+                                💵 Cash / Cash in Hand (Available Balance: Rs. {{ number_format($cashInHand ?? 0, 2) }})
+                            </option>
+                            <option value="bank" @selected(old('payment_method') === 'bank')>
+                                🏦 Bank Account (Deduct from Bank Balance)
+                            </option>
+                            <option value="easypaisa" @selected(old('payment_method') === 'easypaisa')>📱 EasyPaisa</option>
+                            <option value="jazzcash" @selected(old('payment_method') === 'jazzcash')>📱 JazzCash</option>
+                            <option value="cheque" @selected(old('payment_method') === 'cheque')>📄 Cheque</option>
+                            <option value="other" @selected(old('payment_method') === 'other')>📌 Other</option>
+                        </select>
+                        @error('payment_method')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- Bank Account Select --}}
+                    <div class="mb-3 {{ old('payment_method') === 'bank' ? '' : 'd-none' }}" id="expBankSelectRow">
+                        <label class="form-label small fw-semibold text-dark">Select Bank Account <span class="text-danger">*</span></label>
+                        <select name="bank_id" id="expPayBankId" class="form-select @error('bank_id') is-invalid @enderror" onchange="updatePaymentUI()">
+                            <option value="" data-balance="0">-- Choose Bank Account --</option>
+                            @foreach($banks as $b)
+                                <option value="{{ $b->id }}" data-balance="{{ (float) $b->current_balance }}" data-name="{{ $b->name }}" @selected(old('bank_id') == $b->id)>
+                                    {{ $b->name }} @if($b->account_title)({{ $b->account_title }})@endif — Available Balance: Rs. {{ number_format($b->current_balance, 2) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('bank_id')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- Live Balance & Deduction Notice Box --}}
+                    <div id="paymentBalanceNotice" class="alert alert-light border py-2 px-3 mb-3 small d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <i id="balanceNoticeIcon" class="bi bi-wallet2 text-success fs-5"></i>
+                            <div>
+                                <div id="balanceNoticeTitle" class="fw-semibold text-dark">Available Cash in Hand</div>
+                                <div id="balanceNoticeSub" class="text-muted" style="font-size: 0.78rem;">Expense amount will be deducted from Cash in Hand</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-muted" style="font-size: 0.72rem;">Available Balance</div>
+                            <div id="balanceNoticeAmount" class="fw-bold text-success fs-6">Rs. {{ number_format($cashInHand ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+
                     <div class="mb-4">
                         <label class="form-label small fw-semibold text-dark">Note / Description (Optional)</label>
-                        <textarea name="note" class="form-control" rows="3" placeholder="Additional details, invoice reference, or payment method...">{{ old('note') }}</textarea>
+                        <textarea name="note" class="form-control" rows="3" placeholder="Additional details, invoice reference...">{{ old('note') }}</textarea>
                     </div>
 
                     <div class="d-flex align-items-center gap-2">
@@ -241,5 +292,59 @@
             this.blur();
         });
     });
+
+    const cashInHand = {{ (float) ($cashInHand ?? 0) }};
+
+    function updatePaymentUI() {
+        const methodSelect = document.getElementById('expPayMethod');
+        const method = methodSelect ? methodSelect.value : 'cash';
+        const bankRow = document.getElementById('expBankSelectRow');
+        const bankSelect = document.getElementById('expPayBankId');
+        const noticeBox = document.getElementById('paymentBalanceNotice');
+        const icon = document.getElementById('balanceNoticeIcon');
+        const title = document.getElementById('balanceNoticeTitle');
+        const sub = document.getElementById('balanceNoticeSub');
+        const amt = document.getElementById('balanceNoticeAmount');
+        const amountInput = document.querySelector('input[name="amount"]');
+        const expenseAmount = parseFloat(amountInput ? amountInput.value : 0) || 0;
+
+        if (method === 'bank') {
+            bankRow.classList.remove('d-none');
+            bankSelect.required = true;
+            const selectedOpt = bankSelect.options[bankSelect.selectedIndex];
+            const bankBalance = parseFloat(selectedOpt ? selectedOpt.getAttribute('data-balance') : 0) || 0;
+            const bankName = selectedOpt ? (selectedOpt.getAttribute('data-name') || 'Bank Account') : 'Bank Account';
+
+            icon.className = 'bi bi-bank2 text-primary fs-5';
+            title.textContent = selectedOpt && selectedOpt.value ? bankName : 'Bank Account Selected';
+            sub.textContent = 'Debit transaction will deduct Rs. ' + expenseAmount.toFixed(2) + ' from this bank';
+            amt.textContent = 'Rs. ' + bankBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            amt.className = bankBalance >= expenseAmount ? 'fw-bold text-primary fs-6' : 'fw-bold text-danger fs-6';
+        } else if (method === 'cash') {
+            bankRow.classList.add('d-none');
+            bankSelect.required = false;
+
+            icon.className = 'bi bi-wallet2 text-success fs-5';
+            title.textContent = 'Available Cash in Hand';
+            sub.textContent = 'Amount will be deducted from Cash in Hand (funded by Capital & Sales)';
+            amt.textContent = 'Rs. ' + cashInHand.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            amt.className = cashInHand >= expenseAmount ? 'fw-bold text-success fs-6' : 'fw-bold text-danger fs-6';
+        } else {
+            bankRow.classList.add('d-none');
+            bankSelect.required = false;
+
+            icon.className = 'bi bi-credit-card text-info fs-5';
+            title.textContent = method.toUpperCase() + ' Payment';
+            sub.textContent = 'Expense recorded via ' + method;
+            amt.textContent = 'Rs. ' + expenseAmount.toFixed(2);
+            amt.className = 'fw-bold text-dark fs-6';
+        }
+    }
+
+    // Attach amount input listener to update notice live
+    document.querySelector('input[name="amount"]')?.addEventListener('input', updatePaymentUI);
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', updatePaymentUI);
 </script>
 @endpush

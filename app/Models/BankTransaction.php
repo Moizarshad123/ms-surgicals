@@ -18,13 +18,18 @@ class BankTransaction extends Model
         'person_name',
         'reference_no',
         'category',
+        'linked_supplier',
+        'linked_customer_id',
         'description',
         'user_id',
+        'is_capital_transfer',
+        'capital_source_id',
     ];
 
     protected $casts = [
         'transaction_date' => 'date',
         'amount' => 'decimal:2',
+        'is_capital_transfer' => 'boolean',
     ];
 
     public function bank()
@@ -35,6 +40,21 @@ class BankTransaction extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'linked_customer_id');
+    }
+
+    public function purchasePayments()
+    {
+        return $this->hasMany(PurchasePayment::class);
+    }
+
+    public function salePayments()
+    {
+        return $this->hasMany(SalePayment::class);
     }
 
     public function getIsCreditAttribute(): bool

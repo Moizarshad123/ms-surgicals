@@ -191,6 +191,8 @@
                                     'code' => $it->product ? $it->product->code : '-',
                                     'quantity' => $it->quantity,
                                     'price' => (float) $it->price,
+                                    'discount_percent' => (float) $it->discount_percent,
+                                    'discount_amount' => (float) $it->discount_amount,
                                     'total' => (float) $it->total,
                                 ];
                             });
@@ -222,7 +224,7 @@
                                 </span>
                             </td>
                             <td>
-                                <span class="fw-bold text-dark fs-6">Rs. {{ number_format($purchase->total) }}</span>
+                                <span class="fw-bold text-dark fs-6">Rs. {{ number_format($purchase->total, 2) }}</span>
                             </td>
                             <td>
                                 @if($purchase->payment_status === 'paid')
@@ -230,27 +232,32 @@
                                         <i class="bi bi-check-circle-fill me-1"></i> Paid
                                     </span>
                                 @elseif($purchase->payment_status === 'partial')
-                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1" title="Paid: Rs. {{ number_format($purchase->paid_amount) }}">
-                                        <i class="bi bi-hourglass-split me-1"></i> Partial (Due: Rs. {{ number_format($purchase->due_amount) }})
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1" title="Paid: Rs. {{ number_format($purchase->paid_amount, 2) }}">
+                                        <i class="bi bi-hourglass-split me-1"></i> Partial (Due: Rs. {{ number_format($purchase->due_amount, 2) }})
                                     </span>
                                 @else
                                     <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">
-                                        <i class="bi bi-exclamation-circle-fill me-1"></i> Unpaid (Rs. {{ number_format($purchase->due_amount) }})
+                                        <i class="bi bi-exclamation-circle-fill me-1"></i> Unpaid (Rs. {{ number_format($purchase->due_amount, 2) }})
                                     </span>
                                 @endif
                             </td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
-                                    @if($purchase->due_amount > 0)
+                                    {{-- @if($purchase->due_amount > 0)
                                         <a href="{{ route('credit-purchases.index', ['search' => $purchase->reference_no]) }}" class="btn btn-outline-success" title="Pay Installment">
                                             <i class="bi bi-plus-circle"></i> Pay
                                         </a>
-                                    @endif
+                                    @endif --}}
                                     <button type="button" class="btn btn-outline-primary btn-view-purchase"
                                             data-ref="{{ $purchase->reference_no }}"
                                             data-supplier="{{ $purchase->supplier_name ?: 'General Supplier' }}"
                                             data-date="{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('d M, Y') }}"
-                                            data-total="Rs. {{ number_format($purchase->total) }}"
+                                            data-subtotal="Rs. {{ number_format($purchase->sub_total, 2) }}"
+                                            data-discount="Rs. {{ number_format($purchase->discount, 2) }}"
+                                            data-total="Rs. {{ number_format($purchase->total, 2) }}"
+                                            data-advance="Rs. {{ number_format($purchase->advance_adjusted, 2) }}"
+                                            data-paid="Rs. {{ number_format($purchase->paid_amount, 2) }}"
+                                            data-due="Rs. {{ number_format($purchase->due_amount, 2) }}"
                                             data-items='@json($itemsPayload)'>
                                         <i class="bi bi-eye me-1"></i> View
                                     </button>
@@ -309,22 +316,40 @@
             <div class="modal-body p-4">
                 <!-- Meta Info Badges -->
                 <div class="row g-3 mb-4">
-                    <div class="col-sm-4">
+                    <div class="col-sm-3 col-6">
                         <div class="p-3 bg-light rounded-3 border">
                             <div class="text-muted small">Supplier</div>
-                            <div class="fw-bold text-dark mt-1" id="modalSupplier">-</div>
+                            <div class="fw-bold text-dark mt-1 text-truncate" id="modalSupplier">-</div>
                         </div>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-3 col-6">
                         <div class="p-3 bg-light rounded-3 border">
                             <div class="text-muted small">Purchase Date</div>
                             <div class="fw-bold text-dark mt-1" id="modalDate">-</div>
                         </div>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-3 col-6">
                         <div class="p-3 bg-light rounded-3 border">
                             <div class="text-muted small">Invoice Total</div>
-                            <div class="fw-bold text-success fs-6 mt-1" id="modalTotal">-</div>
+                            <div class="fw-bold text-dark fs-6 mt-1" id="modalTotal">-</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-6" id="modalAdvanceCard" style="display:none;">
+                        <div class="p-3 bg-success-subtle rounded-3 border border-success-subtle">
+                            <div class="text-success small fw-semibold">Advance Payment</div>
+                            <div class="fw-bold text-success fs-6 mt-1" id="modalAdvance">-</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="text-muted small">Paid Today</div>
+                            <div class="fw-bold text-success fs-6 mt-1" id="modalPaid">-</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3 col-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="text-muted small">Remaining Due</div>
+                            <div class="fw-bold text-danger fs-6 mt-1" id="modalDue">-</div>
                         </div>
                     </div>
                 </div>
@@ -337,6 +362,7 @@
                                 <th>#</th>
                                 <th>Product Name</th>
                                 <th class="text-end">Unit Price</th>
+                                <th class="text-center">Discount (%)</th>
                                 <th class="text-center">Quantity</th>
                                 <th class="text-end">Subtotal</th>
                             </tr>
@@ -390,22 +416,38 @@
             const supplier = $(this).data('supplier');
             const date = $(this).data('date');
             const total = $(this).data('total');
+            const advance = $(this).data('advance');
+            const paid = $(this).data('paid');
+            const due = $(this).data('due');
             const items = $(this).data('items') || [];
 
             $('#modalRefNo').text('Invoice Reference: ' + ref);
             $('#modalSupplier').text(supplier);
             $('#modalDate').text(date);
             $('#modalTotal').text(total);
+            $('#modalPaid').text(paid || 'Rs. 0.00');
+            $('#modalDue').text(due || 'Rs. 0.00');
+
+            // Show advance card if advance was applied
+            const rawAdvance = parseFloat(String(advance || '').replace(/[^\d.-]/g, '')) || 0;
+            if (rawAdvance > 0) {
+                $('#modalAdvance').text(advance);
+                $('#modalAdvanceCard').show();
+            } else {
+                $('#modalAdvanceCard').hide();
+            }
 
             let rows = '';
             items.forEach((item, index) => {
+                const discPct = parseFloat(item.discount_percent) || 0;
                 rows += `
                     <tr>
                         <td class="text-muted small">${index + 1}</td>
                         <td class="fw-semibold text-dark">${item.product}</td>
-                        <td class="text-end">Rs. ${parseFloat(item.price)}</td>
+                        <td class="text-end">Rs. ${parseFloat(item.price).toFixed(2)}</td>
+                        <td class="text-center">${discPct > 0 ? `<span class="badge bg-warning-subtle text-dark border border-warning-subtle">${discPct}%</span>` : '<span class="text-muted small">0%</span>'}</td>
                         <td class="text-center"><span class="badge bg-secondary-subtle text-dark border px-2">${item.quantity}</span></td>
-                        <td class="text-end fw-bold text-dark">Rs. ${parseFloat(item.total)}</td>
+                        <td class="text-end fw-bold text-dark">Rs. ${parseFloat(item.total).toFixed(2)}</td>
                     </tr>
                 `;
             });

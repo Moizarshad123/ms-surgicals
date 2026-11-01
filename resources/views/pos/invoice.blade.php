@@ -5,77 +5,150 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice {{ $sale->invoice_no }}</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             background: #eef1f4;
             display: flex;
             justify-content: center;
             padding: 20px 0;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
         }
 
         #invoice-POS {
             box-shadow: 0 0 1in -0.25in rgba(0, 0, 0, 0.5);
-            padding: 3mm;
+            padding: 4mm 3mm;
             margin: 0 auto;
-            width: 58mm;               /* thermal receipt width — change to 58mm if that's your printer size */
+            width: 72mm;
             background: #FFF;
         }
 
-        #invoice-POS ::selection { background: #f31544; color: #FFF; }
-
-        #invoice-POS h1 { font-size: 1.5em; color: #222; margin: 0; }
-        #invoice-POS h2 { font-size: .9em; margin: 0; }
-        #invoice-POS h3 { font-size: 1.2em; font-weight: 300; line-height: 2em; margin: 0; }
-        #invoice-POS p { font-size: .75em; color: #666; line-height: 1.3em; margin: 0; }
-
-        #invoice-POS #top, #invoice-POS #mid, #invoice-POS #bot {
-            border-bottom: 1px solid #EEE;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
+        /* ---- Top (Logo + Business Info) ---- */
+        #top {
+            text-align: center;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #ccc;
         }
-        #invoice-POS #bot { border-bottom: none; margin-bottom: 0; }
-
-        #invoice-POS #top { min-height: 70px; text-align: center; }
-        #invoice-POS #top .logo {
-            height: 50px;
-            width: 50px;
-            margin: 0 auto 6px;
-            background-size: 50px 50px;
-            background-position: center;
-            background-repeat: no-repeat;
+        #top img {
+            display: block;
+            margin: 0 auto 5px;
+            max-width: 80px;
+            height: auto;
+        }
+        #top .biz-name {
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #111;
+        }
+        #top .biz-sub {
+            font-size: 9px;
+            color: #555;
+            line-height: 1.4;
+            margin-top: 2px;
+        }
+        #top .receipt-label {
+            font-size: 10px;
+            font-weight: bold;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #333;
         }
 
-        #invoice-POS .info { display: block; margin-left: 0; }
-        #invoice-POS #mid .info p { text-align: left; }
+        /* ---- Mid (Invoice meta) ---- */
+        #mid {
+            font-size: 9px;
+            color: #333;
+            line-height: 1.6;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #ccc;
+        }
+        #mid .meta-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        #mid .meta-label { color: #666; }
+        #mid .meta-val { font-weight: bold; text-align: right; }
 
-        #invoice-POS table { width: 100%; border-collapse: collapse; }
-        #invoice-POS td { padding: 3px 0; }
+        /* ---- Items Table ---- */
+        #items-section {
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+            border-bottom: 1px dashed #ccc;
+        }
+        .items-header {
+            font-size: 8.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 2px;
+        }
+        .item-row {
+            font-size: 9px;
+            display: flex;
+            align-items: flex-start;
+            padding: 2px 0;
+            border-bottom: 1px dotted #eee;
+        }
+        .item-name { flex: 1; color: #222; line-height: 1.3; padding-right: 3px; }
+        .item-qty  { width: 22px; text-align: center; color: #444; flex-shrink: 0; }
+        .item-price { width: 38px; text-align: right; color: #444; flex-shrink: 0; }
+        .item-disc { width: 24px; text-align: center; color: #444; flex-shrink: 0; }
+        .item-total { width: 44px; text-align: right; font-weight: bold; color: #111; flex-shrink: 0; }
 
-        #invoice-POS .tabletitle { font-size: .68em; background: #EEE; }
-        #invoice-POS .tabletitle td { padding: 4px 2px; }
-        #invoice-POS .service { border-bottom: 1px solid #EEE; }
-        #invoice-POS .item { width: 24mm; }
-        #invoice-POS .itemtext { font-size: .72em; color: #333; }
+        /* ---- Totals ---- */
+        #totals-section {
+            font-size: 9.5px;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            color: #333;
+        }
+        .total-row.grand {
+            font-size: 11px;
+            font-weight: bold;
+            color: #111;
+            border-top: 1px solid #333;
+            padding-top: 4px;
+            margin-top: 2px;
+        }
+        .total-row.balance {
+            font-size: 10px;
+            font-weight: bold;
+            color: #c0392b;
+            border-top: 1px dashed #ccc;
+            margin-top: 4px;
+            padding-top: 4px;
+        }
+        .total-row.paid-row { color: #27ae60; font-weight: 600; }
+        .total-label { color: inherit; }
+        .total-val { text-align: right; font-weight: inherit; }
 
-        #invoice-POS .Rate, #invoice-POS .payment { text-align: right; }
-        #invoice-POS .Hours { text-align: center; }
+        /* ---- Footer ---- */
+        #footer {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 8.5px;
+            color: #777;
+            border-top: 1px dashed #ccc;
+            padding-top: 6px;
+        }
 
-        #invoice-POS .grand-row td { border-top: 1px solid #333; }
-        #invoice-POS .grand-row h2 { font-size: 1em; }
-
-        #invoice-POS #legalcopy { margin-top: 5mm; }
-        #invoice-POS .legal { text-align: center; font-size: .75em; }
-
+        /* ---- Print ---- */
         .no-print { text-align: center; margin-top: 18px; }
         .no-print button, .no-print a {
-            padding: 8px 22px;
-            border-radius: 6px;
-            font-size: .9em;
-            text-decoration: none;
-            cursor: pointer;
-            display: inline-block;
+            padding: 8px 22px; border-radius: 6px;
+            font-size: .9em; text-decoration: none;
+            cursor: pointer; display: inline-block;
         }
         .btn-print { background: #1e2a38; color: #fff; border: none; }
         .btn-new { background: #fff; color: #333; border: 1px solid #ccc; margin-left: 8px; }
@@ -83,111 +156,128 @@
         @media print {
             body { background: #fff; padding: 0; }
             .no-print { display: none; }
-            #invoice-POS { box-shadow: none; width: 58mm; }
+            #invoice-POS { box-shadow: none; width: 72mm; }
         }
-
     </style>
 </head>
 <body>
 
     <div id="invoice-POS">
 
-        <center id="top">
-            <img style="width:110px; height:auto; display:block; margin:0 auto 4px;" src="{{ asset('admin/images/logo-2.png') }}" alt="TG Surgicals"/>
-            <div class="info">
-                <p style="margin:0; font-size:10px; color:#333; line-height:1.3;">
-                    Shop 58, Mirwah Road TandoAllahyar.<br>
-                    Phone # 0334-2830393
-                </p>
-                <h3 style="font-size:12px; font-weight:bold; margin:6px 0 0 0; text-transform:uppercase; letter-spacing:0.5px;">Sale Receipt</h3>
+        {{-- TOP: Logo + Business Info --}}
+        <div id="top">
+            <img src="{{ asset('admin/images/logo-2.png') }}" alt="TG Surgicals" onerror="this.style.display='none'">
+            <div class="biz-name">TG Surgicals</div>
+            <div class="biz-sub">
+                Shop 58, Mirwah Road TandoAllahyar<br>
+                Phone: 0334-2830393
             </div>
-        </center><!--End InvoiceTop-->
+            <div class="receipt-label">— Sale Receipt —</div>
+        </div>
 
+        {{-- MID: Invoice Meta --}}
         <div id="mid">
-            <div class="info">
-                <p>
-                    Invoice #: {{ $sale->invoice_no }}<br>
-                    Date: {{ $sale->created_at->format('d M Y, h:i A') }}<br>
-                    Cashier: {{ $sale->user->name ?? '-' }}<br>
-                    Customer: {{ $sale->customer->name ?? 'Walk-in Customer' }}<br>
-                    Phone: {{ $sale->customer->phone ?? '-' }}
-                </p>
+            <div class="meta-row"><span class="meta-label">Invoice #</span><span class="meta-val">{{ $sale->invoice_no }}</span></div>
+            <div class="meta-row"><span class="meta-label">Date</span><span class="meta-val">{{ $sale->created_at->format('d M Y, h:i A') }}</span></div>
+            <div class="meta-row"><span class="meta-label">Cashier</span><span class="meta-val">{{ $sale->user->name ?? '-' }}</span></div>
+            <div class="meta-row"><span class="meta-label">Customer</span><span class="meta-val">{{ $sale->customer->name ?? 'Walk-in' }}</span></div>
+            @if($sale->customer?->phone)
+            <div class="meta-row"><span class="meta-label">Phone</span><span class="meta-val">{{ $sale->customer->phone }}</span></div>
+            @endif
+            <div class="meta-row"><span class="meta-label">Status</span><span class="meta-val" style="color:{{ $sale->payment_status === 'paid' ? '#27ae60' : '#c0392b' }};">{{ strtoupper($sale->payment_status) }}</span></div>
+        </div>
+
+        {{-- ITEMS --}}
+        @php
+            $itemCount = $sale->items->count();
+            $totalQty  = $sale->items->sum('quantity');
+        @endphp
+        <div id="items-section">
+            <div class="items-header">
+                <span style="flex:1;">Item</span>
+                <span style="width:22px;text-align:center;">Qty</span>
+                <span style="width:38px;text-align:right;">Price</span>
+                <span style="width:24px;text-align:center;">%</span>
+                <span style="width:44px;text-align:right;">Total</span>
             </div>
-        </div><!--End Invoice Mid-->
+            @foreach ($sale->items as $item)
+                @php
+                    $discP = (float)($item->discount_percent ?? 0);
+                    $discA = (float)($item->discount_amount ?? 0);
+                @endphp
+                <div class="item-row">
+                    <span class="item-name">
+                        {{ $item->product->name ?? 'N/A' }}
+                        @if($discA > 0)
+                            <div style="font-size:8px; color:#666;">Disc: -Rs. {{ number_format($discA, 2) }}</div>
+                        @endif
+                    </span>
+                    <span class="item-qty">{{ $item->quantity }}</span>
+                    <span class="item-price">{{ number_format((float)$item->price, 2) }}</span>
+                    <span class="item-disc">{{ $discP > 0 ? rtrim(rtrim(number_format($discP, 2), '0'), '.') . '%' : '-' }}</span>
+                    <span class="item-total">{{ number_format((float)$item->total, 2) }}</span>
+                </div>
+            @endforeach
+        </div>
 
-        <div id="bot">
-            <div id="table">
-                <table>
-                    <tr class="tabletitle">
-                        <td class="item"><h2>Item</h2></td>
-                        <td class="Hours"><h2>Qty</h2></td>
-                        <td class="Rate"><h2>Total</h2></td>
-                    </tr>
-
-                    @foreach ($sale->items as $item)
-                        <tr class="service">
-                            <td class="tableitem"><p class="itemtext">{{ $item->product->name ?? 'N/A' }}</p></td>
-                            <td class="tableitem" style="text-align:center;"><p class="itemtext">{{ $item->quantity }}</p></td>
-                            <td class="tableitem Rate"><p class="itemtext">{{ number_format($item->total) }}</p></td>
-                        </tr>
-                    @endforeach
-
-                    @php
-                        $currentDue = max(0, (float) $sale->total - (float) $sale->paid_amount);
-                        $previousBalance = 0;
-                        if ($sale->customer_id) {
-                            $previousBalance = (float) \App\Models\Sale::where('customer_id', $sale->customer_id)
-                                ->where('id', '<', $sale->id)
-                                ->whereRaw('total > paid_amount')
-                                ->sum(\Illuminate\Support\Facades\DB::raw('total - paid_amount'));
-                            $previousBalance = max(0, $previousBalance);
-                        }
-                        $totalNetDue = $previousBalance + $currentDue;
-                    @endphp
-
-                    <tr class="tabletitle">
-                        <td></td>
-                        <td class="Rate"><h2>Sub Total</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->sub_total) }}</h2></td>
-                    </tr>
-                    @if($sale->discount > 0)
-                    <tr class="tabletitle">
-                        <td></td>
-                        <td class="Rate"><h2>Discount</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->discount) }}</h2></td>
-                    </tr>
-                    @endif
-                    <tr class="tabletitle grand-row">
-                        <td></td>
-                        <td class="Rate"><h2>Inv Total Amt</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->total) }}</h2></td>
-                    </tr>
-                    @if($sale->customer_id)
-                    <tr class="tabletitle">
-                        <td></td>
-                        <td class="Rate"><h2>Previous Bal</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($previousBalance) }}</h2></td>
-                    </tr>
-                    @endif
-                    @if($sale->paid_amount > 0)
-                    <tr class="tabletitle">
-                        <td></td>
-                        <td class="Rate"><h2>{{ $currentDue > 0 ? 'Paid Today' : 'Paid' }}</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->paid_amount) }}</h2></td>
-                    </tr>
-                    @endif
-                    <tr class="tabletitle grand-row">
-                        <td></td>
-                        <td class="Rate"><h2>{{ $sale->customer_id ? 'Total Net Due' : ($currentDue > 0 ? 'Remaining Due' : 'Change') }}</h2></td>
-                        <td class="payment"><h2>Rs. {{ number_format($sale->customer_id ? $totalNetDue : ($currentDue > 0 ? $currentDue : abs($sale->paid_amount - $sale->total))) }}</h2></td>
-                    </tr>
-                </table>
-            </div><!--End Table-->
-
-            <div id="legalcopy">
-                <p class="legal"><strong>Thank you for your business!</strong></p>
+        {{-- TOTALS --}}
+        @php
+            $currentDue      = max(0, (float) $sale->total - (float) $sale->paid_amount);
+            $previousBalance = 0;
+            if ($sale->customer_id) {
+                $previousBalance = (float) \App\Models\Sale::where('customer_id', $sale->customer_id)
+                    ->where('id', '<', $sale->id)
+                    ->whereRaw('total > paid_amount')
+                    ->sum(\Illuminate\Support\Facades\DB::raw('total - paid_amount'));
+                $previousBalance = max(0, $previousBalance);
+            }
+            $totalNetDue = $previousBalance + $currentDue;
+        @endphp
+        <div id="totals-section">
+            <div class="total-row">
+                <span class="total-label">Items ({{ $itemCount }} types / {{ $totalQty }} qty)</span>
+                <span class="total-val">Rs. {{ number_format((float)$sale->sub_total, 2) }}</span>
             </div>
-        </div><!--End InvoiceBot-->
+            @if($sale->discount > 0)
+            <div class="total-row">
+                <span class="total-label">Discount</span>
+                <span class="total-val" style="color:#e67e22;">- Rs. {{ number_format((float)$sale->discount, 2) }}</span>
+            </div>
+            @endif
+            <div class="total-row grand">
+                <span class="total-label">Inv Total</span>
+                <span class="total-val">Rs. {{ number_format((float)$sale->total, 2) }}</span>
+            </div>
+            @if($sale->paid_amount > 0)
+            <div class="total-row paid-row">
+                <span class="total-label">{{ $currentDue > 0 ? 'Paid Today' : 'Paid' }}</span>
+                <span class="total-val">Rs. {{ number_format((float)$sale->paid_amount, 2) }}</span>
+            </div>
+            @endif
+            @if($currentDue > 0)
+            <div class="total-row" style="color:#c0392b;">
+                <span class="total-label">Remaining Due</span>
+                <span class="total-val">Rs. {{ number_format($currentDue, 2) }}</span>
+            </div>
+            @endif
+            @if($sale->customer_id && $previousBalance > 0)
+            <div class="total-row balance">
+                <span class="total-label">Prev. Balance</span>
+                <span class="total-val">Rs. {{ number_format($previousBalance, 2) }}</span>
+            </div>
+            <div class="total-row balance" style="font-size:11px;">
+                <span class="total-label">Total Net Due</span>
+                <span class="total-val">Rs. {{ number_format($totalNetDue, 2) }}</span>
+            </div>
+            @endif
+        </div>
+
+        {{-- FOOTER --}}
+        <div id="footer">
+            <strong>Thank you for your business!</strong><br>
+            Please keep this receipt for your records.
+        </div>
+
     </div><!--End Invoice-->
 
     <div class="no-print">
@@ -196,12 +286,10 @@
     </div>
 
     <script>
-        // Dynamically set the exact page height to match the receipt content,
-        // so Chrome's print dialog picks the correct custom paper size instead of "Letter".
         window.addEventListener('beforeprint', function () {
             const box = document.getElementById('invoice-POS');
-            const heightPx = box.offsetHeight + 30; // small buffer
-            const heightMm = Math.ceil(heightPx / 96 * 25.4); // px -> mm (96dpi)
+            const heightPx = box.offsetHeight + 30;
+            const heightMm = Math.ceil(heightPx / 96 * 25.4);
 
             let styleTag = document.getElementById('dynamic-page-size');
             if (!styleTag) {
@@ -209,7 +297,7 @@
                 styleTag.id = 'dynamic-page-size';
                 document.head.appendChild(styleTag);
             }
-            styleTag.innerHTML = `@page { size: 58mm ${heightMm}mm; margin: 0; }`;
+            styleTag.innerHTML = `@page { size: 72mm ${heightMm}mm; margin: 0; }`;
         });
     </script>
 

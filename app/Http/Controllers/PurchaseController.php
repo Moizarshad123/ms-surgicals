@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessCapital;
+use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchasePayment;
+use App\Models\SalePayment;
+use App\Models\SaleReturn;
+use App\Models\BankTransaction;
+use App\Models\SupplierAdvance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -37,7 +43,71 @@ class PurchaseController extends Controller
     {
         $products = Product::orderBy('name')->get();
 
-        return view('purchases.create', compact('products'));
+        // Retrieve existing suppliers and their advance balances
+        $suppliers = Purchase::whereNotNull('supplier_name')
+            ->where('supplier_name', '!=', '')
+            ->distinct()
+            ->pluck('supplier_name')
+            ->merge(SupplierAdvance::pluck('supplier_name'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->map(function ($name) {
+                $adv = SupplierAdvance::where('supplier_name', $name)->first();
+                return [
+                    'name' => $name,
+                    'advance_balance' => $adv ? (float) $adv->advance_balance : 0.0,
+                ];
+            });
+
+        // Calculate available Cash in Hand for purchasing stock
+        $totalCashCapital = (float) BusinessCapital::sum('amount');
+        $cashSalesInflow = (float) SalePayment::where('payment_method', 'cash')->sum('amount');
+        $cashWithdrawalsFromBank = (float) BankTransaction::where('type', 'debit')
+            ->where('is_capital_transfer', false)
+            ->where(function ($q) {
+                $q->where('category', 'like', '%cash withdrawal%')
+                  ->orWhere('description', 'like', '%cash withdrawal%');
+            })->sum('amount');
+
+        $cashDepositsToBank = (float) BankTransaction::where('type', 'credit')
+            ->where('is_capital_transfer', false)
+            ->where(function ($q) {
+                $q->where('category', 'like', '%cash deposit%')
+                  ->orWhere('description', 'like', '%cash deposit%');
+            })->sum('amount');
+
+        $capitalTransfersToBank = (float) BankTransaction::where('is_capital_transfer', true)
+            ->where('type', 'credit')
+            ->sum('amount');
+
+        $cashPurchases = (float) PurchasePayment::where('payment_method', 'cash')->sum('amount');
+        $cashExpenses = (float) Expense::where(function ($q) {
+            $q->where('payment_method', 'cash')->orWhereNull('payment_method');
+        })->sum('amount');
+        $cashRefunds = (float) SaleReturn::sum('refund_amount');
+
+        $cashInHand = ($totalCashCapital + $cashSalesInflow + $cashWithdrawalsFromBank)
+                    - ($cashPurchases + $cashExpenses + $cashDepositsToBank + $capitalTransfersToBank + $cashRefunds);
+        $cashInHand = round($cashInHand, 2);
+
+        return view('purchases.create', compact('products', 'suppliers', 'cashInHand', 'totalCashCapital'));
+    }
+
+    public function getSupplierAdvance(Request $request)
+    {
+        $name = trim($request->get('name', ''));
+        $advanceBalance = 0.0;
+        if (!empty($name)) {
+            $record = SupplierAdvance::where('supplier_name', $name)->first();
+            $advanceBalance = $record ? (float) $record->advance_balance : 0.0;
+        }
+
+        return response()->json([
+            'success' => true,
+            'supplier_name' => $name,
+            'advance_balance' => $advanceBalance,
+        ]);
     }
 
     public function store(Request $request)
@@ -49,6 +119,7 @@ class PurchaseController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'payment_method' => ['nullable', 'string', 'max:50'],
             'due_date' => ['nullable', 'date'],
@@ -56,18 +127,79 @@ class PurchaseController extends Controller
         ]);
 
         DB::transaction(function () use ($validated) {
+            $subTotal = 0;
+            $totalDiscount = 0;
             $total = 0;
+            $computedItems = [];
+
             foreach ($validated['items'] as $item) {
-                $total += $item['quantity'] * $item['price'];
+                $qty = (int) $item['quantity'];
+                $price = (float) $item['price'];
+                $discountPercent = isset($item['discount_percent']) && is_numeric($item['discount_percent'])
+                    ? (float) $item['discount_percent']
+                    : 0.0;
+
+                // Step 1: Calculate discount per unit = price * discount%
+                $discountPerUnit = round($price * ($discountPercent / 100), 4);
+                // Step 2: Calculate discounted unit price = price - discount per unit
+                $discountedPrice = max(0, round($price - $discountPerUnit, 4));
+                // Step 3: Calculate final subtotal = discounted unit price * qty
+                $lineTotal = round($discountedPrice * $qty, 2);
+                $lineRawTotal = round($price * $qty, 2);
+                $lineDiscountAmount = max(0, round($lineRawTotal - $lineTotal, 2));
+
+                $subTotal += $lineRawTotal;
+                $totalDiscount += $lineDiscountAmount;
+                $total += $lineTotal;
+
+                $computedItems[] = [
+                    'product_id' => $item['product_id'],
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'discount_percent' => $discountPercent,
+                    'discount_amount' => $lineDiscountAmount,
+                    'total' => $lineTotal,
+                ];
             }
 
-            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : $total;
-            $paidAmount = min($paidInput, $total);
+            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : 0.0;
+            $supplierName = trim($validated['supplier_name'] ?? '');
 
-            if ($paidAmount >= $total) {
+            // Check if supplier has available advance
+            $advanceRecord = null;
+            $advanceAvailable = 0.0;
+            if (!empty($supplierName)) {
+                $advanceRecord = SupplierAdvance::where('supplier_name', $supplierName)->lockForUpdate()->first();
+                $advanceAvailable = $advanceRecord ? (float) $advanceRecord->advance_balance : 0.0;
+            }
+
+            // Deduct available advance up to invoice total
+            $advanceToApply = min($advanceAvailable, $total);
+            $netPayable = max(0, round($total - $advanceToApply, 2));
+
+            // If manual payment exceeds net payable, excess is stored as supplier advance
+            $excessPaid = max(0, round($paidInput - $netPayable, 2));
+            $paidToApply = min($paidInput, $netPayable);
+            $totalEffectivePaid = round($advanceToApply + $paidToApply, 2);
+
+            // Deduct applied advance from supplier_advances
+            if ($advanceToApply > 0 && $advanceRecord) {
+                $advanceRecord->decrement('advance_balance', $advanceToApply);
+            }
+
+            // If excess was paid, store into supplier advance
+            if ($excessPaid > 0 && !empty($supplierName)) {
+                $suppAdv = SupplierAdvance::firstOrCreate(
+                    ['supplier_name' => $supplierName],
+                    ['advance_balance' => 0]
+                );
+                $suppAdv->increment('advance_balance', $excessPaid);
+            }
+
+            if ($totalEffectivePaid >= $total) {
                 $paymentStatus = 'paid';
                 $dueDate = null;
-            } elseif ($paidAmount > 0) {
+            } elseif ($totalEffectivePaid > 0) {
                 $paymentStatus = 'partial';
                 $dueDate = $validated['due_date'] ?? null;
             } else {
@@ -80,36 +212,56 @@ class PurchaseController extends Controller
 
             $purchase = Purchase::create([
                 'reference_no' => 'PUR-' . now()->format('Ymd') . '-' . $orderNo,
-                'supplier_name' => $validated['supplier_name'] ?? null,
-                'purchase_date' => $validated['purchase_date'],
+                'supplier_name' => !empty($supplierName) ? $supplierName : null,
+                'sub_total' => $subTotal,
+                'discount' => $totalDiscount,
                 'total' => $total,
-                'paid_amount' => $paidAmount,
+                'paid_amount' => $totalEffectivePaid,
+                'advance_adjusted' => $advanceToApply,
+                'purchase_date' => $validated['purchase_date'],
                 'due_date' => $dueDate,
                 'payment_status' => $paymentStatus,
                 'notes' => $validated['notes'] ?? null,
             ]);
 
-            if ($paidAmount > 0) {
+            // 1. Record advance deduction payment if applied
+            if ($advanceToApply > 0) {
                 PurchasePayment::create([
                     'purchase_id' => $purchase->id,
-                    'amount' => $paidAmount,
+                    'amount' => $advanceToApply,
                     'payment_date' => $validated['purchase_date'],
-                    'payment_method' => $validated['payment_method'] ?? 'cash',
-                    'note' => $paidAmount < $total ? 'Initial Advance / Down Payment' : 'Full Payment on Order',
+                    'payment_method' => 'advance_adjustment',
+                    'note' => 'Auto-adjusted from Supplier Advance Balance (Rs. ' . number_format($advanceToApply, 2) . ')',
                     'user_id' => auth()->id(),
                 ]);
             }
 
-            foreach ($validated['items'] as $item) {
+            // 2. Record manual paid payment
+            if ($paidInput > 0) {
+                PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount' => $paidInput,
+                    'payment_date' => $validated['purchase_date'],
+                    'payment_method' => $validated['payment_method'] ?? 'cash',
+                    'note' => $excessPaid > 0
+                        ? 'Payment at Purchase (Includes Rs. ' . number_format($excessPaid, 2) . ' stored as advance)'
+                        : ($totalEffectivePaid < $total ? 'Initial Advance / Down Payment' : 'Full Payment on Order'),
+                    'user_id' => auth()->id(),
+                ]);
+            }
+
+            foreach ($computedItems as $computed) {
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'total' => $item['quantity'] * $item['price'],
+                    'product_id' => $computed['product_id'],
+                    'quantity' => $computed['quantity'],
+                    'price' => $computed['price'],
+                    'discount_percent' => $computed['discount_percent'],
+                    'discount_amount' => $computed['discount_amount'],
+                    'total' => $computed['total'],
                 ]);
 
-                Product::find($item['product_id'])->increment('stock', $item['quantity']);
+                Product::find($computed['product_id'])->increment('stock', $computed['quantity']);
             }
         });
 
@@ -133,6 +285,7 @@ class PurchaseController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -147,35 +300,70 @@ class PurchaseController extends Controller
             $purchase->items()->delete();
 
             // 3. Insert updated items and increment stock
+            $subTotal = 0;
+            $totalDiscount = 0;
             $total = 0;
+
             foreach ($validated['items'] as $item) {
-                $lineTotal = $item['quantity'] * $item['price'];
+                $qty = (int) $item['quantity'];
+                $price = (float) $item['price'];
+                $discountPercent = isset($item['discount_percent']) && is_numeric($item['discount_percent'])
+                    ? (float) $item['discount_percent']
+                    : 0.0;
+
+                // Step 1: Calculate discount per unit = price * discount%
+                $discountPerUnit = round($price * ($discountPercent / 100), 4);
+                // Step 2: Calculate discounted unit price = price - discount per unit
+                $discountedPrice = max(0, round($price - $discountPerUnit, 4));
+                // Step 3: Calculate final subtotal = discounted unit price * qty
+                $lineTotal = round($discountedPrice * $qty, 2);
+                $lineRawTotal = round($price * $qty, 2);
+                $lineDiscountAmount = max(0, round($lineRawTotal - $lineTotal, 2));
+
+                $subTotal += $lineRawTotal;
+                $totalDiscount += $lineDiscountAmount;
                 $total += $lineTotal;
 
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
                     'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'discount_percent' => $discountPercent,
+                    'discount_amount' => $lineDiscountAmount,
                     'total' => $lineTotal,
                 ]);
 
-                Product::where('id', $item['product_id'])->increment('stock', $item['quantity']);
+                Product::where('id', $item['product_id'])->increment('stock', $qty);
             }
 
             // Recalculate payment status based on current paid_amount vs new total
-            $paid = (float) $purchase->paid_amount;
+            $rawPaid = (float) $purchase->paid_amount;
+            $paid = min($rawPaid, (float) $total);
             $paymentStatus = ($paid >= $total) ? 'paid' : ($paid > 0 ? 'partial' : 'due');
             $dueDate = ($paymentStatus === 'paid') ? null : ($validated['due_date'] ?? $purchase->due_date);
 
+            // If new total is less than what was previously recorded as paid, credit excess to supplier advance
+            $overpaidExcess = max(0, round($rawPaid - (float) $total, 2));
+            if ($overpaidExcess > 0 && !empty($validated['supplier_name'])) {
+                $suppAdv = SupplierAdvance::firstOrCreate(
+                    ['supplier_name' => $validated['supplier_name']],
+                    ['advance_balance' => 0]
+                );
+                $suppAdv->increment('advance_balance', $overpaidExcess);
+            }
+
             // 4. Update purchase header
             $purchase->update([
-                'supplier_name' => $validated['supplier_name'] ?? null,
-                'purchase_date' => $validated['purchase_date'],
-                'total' => $total,
+                'supplier_name'  => $validated['supplier_name'] ?? null,
+                'purchase_date'  => $validated['purchase_date'],
+                'sub_total'      => $subTotal,
+                'discount'       => $totalDiscount,
+                'total'          => $total,
+                'paid_amount'    => $paid,
                 'payment_status' => $paymentStatus,
-                'due_date' => $dueDate,
-                'notes' => $validated['notes'] ?? $purchase->notes,
+                'due_date'       => $dueDate,
+                'notes'          => $validated['notes'] ?? $purchase->notes,
             ]);
         });
 

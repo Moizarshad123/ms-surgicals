@@ -32,6 +32,16 @@
                 </a>
             </li>
 
+            
+            <li>
+                <a class="{{ request()->is('capital*') ? 'active' : '' }}" href="{{ route('capital.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-cash-stack"></i>
+                    </span>
+                    <span>Initial Capital</span>
+                </a>
+            </li>
+
             <li>
                 <a class="{{ request()->is('pos*') ? 'active' : '' }}" href="{{ route('pos.index') }}">
                     <span class="nav-link-icon">
@@ -42,7 +52,7 @@
             </li>
 
             <li>
-                <a class="{{ request()->is('credit-sales*') ? 'active' : '' }}" href="{{ route('credit-sales.index') }}">
+                <a class="{{ request()->is('credit-sales*') ? 'active' : '' }}" href="{{ route('credit-sales.customers') }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-wallet2"></i>
                     </span>
@@ -79,7 +89,7 @@
             </li>
 
             <li>
-                <a class="{{ request()->is('purchases*') && !request()->is('purchase-returns*') && !request()->is('credit-purchases*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
+                <a class="{{ request()->is('purchases*') && !request()->is('purchase-returns*') && !request()->is('credit-purchases*') && !request()->is('purchase-orders*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-credit-card"></i>
                     </span>
@@ -88,7 +98,16 @@
             </li>
 
             <li>
-                <a class="{{ request()->is('credit-purchases*') ? 'active' : '' }}" href="{{ route('credit-purchases.index') }}">
+                <a class="{{ request()->is('purchase-orders*') ? 'active' : '' }}" href="{{ route('purchase-orders.index') }}">
+                    <span class="nav-link-icon">
+                        <i class="bi bi-wallet2"></i>
+                    </span>
+                    <span>Purchase Orders</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{{ request()->is('credit-purchases*') ? 'active' : '' }}" href="{{ route('credit-purchases.suppliers') }}">
                     <span class="nav-link-icon">
                         <i class="bi bi-journal-arrow-down"></i>
                     </span>
@@ -114,10 +133,11 @@
                 </a>
             </li>
 
+
             <li>
                 <a class="{{ request()->is('banks*') ? 'active' : '' }}" href="{{ route('banks.index') }}">
                     <span class="nav-link-icon">
-                        <i class="bi bi-bank"></i>
+                        <i class="bi bi-cash-stack"></i>
                     </span>
                     <span>Bank Accounts</span>
                 </a>
@@ -134,9 +154,9 @@
                     <li>
                         <a class="{{ request()->is('reports/profit*') ? 'active' : '' }}" href="{{ route('reports.profit') }}">Sales, Purchase &amp; Profit</a>
                     </li>
-                    <li>
+                    {{-- <li>
                         <a class="{{ request()->is('reports/financial*') ? 'active' : '' }}" href="{{ route('reports.financial') }}">Business Financial Report</a>
-                    </li>
+                    </li> --}}
                     <li>
                         <a class="{{ request()->is('reports/sales*') ? 'active' : '' }}" href="{{ route('reports.sales') }}">Sales Report</a>
                     </li>

@@ -12,8 +12,11 @@ class Purchase extends Model
     protected $fillable = [
         'reference_no',
         'supplier_name',
+        'sub_total',
+        'discount',
         'total',
         'paid_amount',
+        'advance_adjusted',
         'due_date',
         'payment_status',
         'notes',
@@ -23,8 +26,11 @@ class Purchase extends Model
     protected $casts = [
         'purchase_date' => 'date',
         'due_date' => 'date',
+        'sub_total' => 'decimal:2',
+        'discount' => 'decimal:2',
         'total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
+        'advance_adjusted' => 'decimal:2',
     ];
 
     public function items()

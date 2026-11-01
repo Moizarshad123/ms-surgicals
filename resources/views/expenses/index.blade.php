@@ -183,7 +183,8 @@
                         <th>Date</th>
                         <th>Amount</th>
                         <th>Note / Remarks</th>
-                        <th class="text-end" style="width: 100px;">Action</th>
+                        <th>Paid Via</th>
+                        <th class="text-end" style="width: 120px;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="expensesTableBody">
@@ -215,24 +216,35 @@
                                 <div class="text-muted small" style="font-size: 0.75rem;">{{ \Carbon\Carbon::parse($expense->expense_date)->diffForHumans() }}</div>
                             </td>
                             <td>
-                                <span class="fw-bold text-danger fs-6">Rs. {{ number_format($expense->amount) }}</span>
+                                <span class="fw-bold text-danger fs-6">Rs. {{ number_format($expense->amount, 2) }}</span>
                             </td>
                             <td>
                                 <span class="text-muted small">{{ $expense->note ?: '—' }}</span>
                             </td>
+                            <td>
+                                <span class="badge bg-light text-secondary border text-capitalize px-2 py-1">
+                                    <i class="bi {{ $expense->payment_method === 'bank' ? 'bi-bank2' : 'bi-cash' }} me-1"></i>
+                                    {{ $expense->bank ? $expense->bank->name : ucfirst($expense->payment_method ?? 'cash') }}
+                                </span>
+                            </td>
                             <td class="text-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger btn-delete-expense"
-                                        data-url="{{ route('expenses.destroy', $expense) }}"
-                                        data-title="{{ $expense->title }}"
-                                        data-amount="Rs. {{ number_format($expense->amount) }}"
-                                        title="Delete expense">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+                                <div class="d-inline-flex gap-1">
+                                    <a href="{{ route('expenses.edit', $expense) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" title="Edit expense">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete-expense d-inline-flex align-items-center"
+                                            data-url="{{ route('expenses.destroy', $expense) }}"
+                                            data-title="{{ $expense->title }}"
+                                            data-amount="Rs. {{ number_format($expense->amount) }}"
+                                            title="Delete expense">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">
+                            <td colspan="8" class="text-center text-muted py-5">
                                 <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                                 No expenses recorded yet. Click "Add Expense" to log your first expenditure.
                             </td>

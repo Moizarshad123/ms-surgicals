@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Bank;
 use App\Models\BankTransaction;
+use App\Models\BusinessCapital;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Expense;
@@ -112,11 +113,15 @@ class DashboardController extends Controller
         $totalBankBalance = (float) $banks->sum(fn($b) => $b->current_balance);
 
         // 10. Cash in Hand
+        // Initial capital introduced as cash
+        $totalCashCapital = (float) BusinessCapital::sum('amount');
+
         // All cash received: cash sales + installment payments in cash
         $cashSalesInflow = (float) SalePayment::where('payment_method', 'cash')->sum('amount');
 
         // Cash withdrawn from bank (physical cash taken out)
         $cashWithdrawalsFromBank = (float) BankTransaction::where('type', 'debit')
+            ->where('is_capital_transfer', false)
             ->where(function ($q) {
                 $q->where('category', 'like', '%cash withdrawal%')
                   ->orWhere('description', 'like', '%cash withdrawal%');
@@ -124,22 +129,30 @@ class DashboardController extends Controller
 
         // Cash deposited to bank (physical cash put in)
         $cashDepositsToBank = (float) BankTransaction::where('type', 'credit')
+            ->where('is_capital_transfer', false)
             ->where(function ($q) {
                 $q->where('category', 'like', '%cash deposit%')
                   ->orWhere('description', 'like', '%cash deposit%');
             })->sum('amount');
 
+        // Capital transferred directly to bank
+        $capitalTransferredToBank = (float) BankTransaction::where('is_capital_transfer', true)
+            ->where('type', 'credit')
+            ->sum('amount');
+
         // Cash paid for purchases
         $cashPurchases = (float) PurchasePayment::where('payment_method', 'cash')->sum('amount');
 
-        // All expenses (assumed cash unless tracked otherwise)
-        $cashExpenses = (float) Expense::sum('amount');
+        // All expenses in cash (bank expenses are debited from bank balance)
+        $cashExpenses = (float) Expense::where(function ($q) {
+            $q->where('payment_method', 'cash')->orWhereNull('payment_method');
+        })->sum('amount');
 
         // Sale refunds paid back in cash
         $cashRefunds = (float) SaleReturn::sum('refund_amount');
 
-        $cashInHand = $cashSalesInflow + $cashWithdrawalsFromBank
-                    - $cashPurchases - $cashExpenses - $cashDepositsToBank - $cashRefunds;
+        $cashInHand = ($totalCashCapital + $cashSalesInflow + $cashWithdrawalsFromBank)
+                    - ($cashPurchases + $cashExpenses + $cashDepositsToBank + $capitalTransferredToBank + $cashRefunds);
         $cashInHand = round($cashInHand, 2);
 
         return view('dashboard.index', compact(
@@ -153,7 +166,7 @@ class DashboardController extends Controller
             'topProducts', 'lowStockProducts', 'recentSales',
             // Financial position tabs
             'banks', 'totalBankBalance',
-            'cashInHand', 'cashSalesInflow', 'cashPurchases',
+            'cashInHand', 'totalCashCapital', 'cashSalesInflow', 'cashPurchases',
             'cashExpenses', 'cashRefunds', 'cashWithdrawalsFromBank', 'cashDepositsToBank'
         ));
     }

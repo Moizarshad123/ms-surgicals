@@ -345,6 +345,15 @@
                                     <tbody>
                                         <tr>
                                             <td class="px-3 py-2 text-muted">
+                                                <i class="bi bi-cash-stack me-1 text-primary"></i>
+                                                Initial Capital / Investment
+                                            </td>
+                                            <td class="text-end px-3 py-2 fw-semibold text-primary">
+                                                + Rs. {{ number_format($totalCashCapital, 2) }}
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#f0fdf4;">
+                                            <td class="px-3 py-2 text-muted">
                                                 <i class="bi bi-cart-check me-1 text-success"></i>
                                                 Cash Sales &amp; Payments Collected
                                             </td>
@@ -352,7 +361,7 @@
                                                 + Rs. {{ number_format($cashSalesInflow, 2) }}
                                             </td>
                                         </tr>
-                                        <tr style="background:#f0fdf4;">
+                                        <tr>
                                             <td class="px-3 py-2 text-muted">
                                                 <i class="bi bi-bank me-1 text-success"></i>
                                                 Cash Withdrawn from Bank
@@ -364,7 +373,7 @@
                                         <tr class="table-light fw-bold">
                                             <td class="px-3 py-2">Total Inflows</td>
                                             <td class="text-end px-3 py-2 text-success">
-                                                Rs. {{ number_format($cashSalesInflow + $cashWithdrawalsFromBank, 2) }}
+                                                Rs. {{ number_format($totalCashCapital + $cashSalesInflow + $cashWithdrawalsFromBank, 2) }}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -437,7 +446,7 @@
                 <!-- Calculation formula note -->
                 <div class="alert alert-light border mt-3 mb-0 small text-muted py-2 px-3">
                     <i class="bi bi-info-circle me-1"></i>
-                    <strong>Formula:</strong> Cash in Hand = (Cash Sales &amp; Payments + Bank Withdrawals) − (Cash Purchases + Expenses + Bank Deposits + Refunds)
+                    <strong>Formula:</strong> Cash in Hand = (Initial Capital + Cash Sales &amp; Payments + Bank Withdrawals) − (Cash Purchases + Expenses + Bank Deposits + Refunds)
                 </div>
             </div>
 
@@ -446,7 +455,7 @@
 </div>
 
 <!-- Charts Section Row -->
-<div class="row g-3 mb-4">
+{{-- <div class="row g-3 mb-4">
     <!-- Area Chart: 7-Day Performance Trend -->
     <div class="col-lg-8">
         <div class="card dash-card h-100">
@@ -504,7 +513,7 @@
             </div>
         </div>
     </div>
-</div>
+</div> --}}
 
 <!-- Secondary Widgets Row: Recent Sales & Top Products / Low Stock Alerts -->
 <div class="row g-3 mb-4">

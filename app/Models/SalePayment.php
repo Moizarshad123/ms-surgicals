@@ -11,6 +11,7 @@ class SalePayment extends Model
 
     protected $fillable = [
         'sale_id',
+        'bank_transaction_id',
         'amount',
         'payment_date',
         'payment_method',
@@ -26,6 +27,11 @@ class SalePayment extends Model
     public function sale()
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    public function bankTransaction()
+    {
+        return $this->belongsTo(BankTransaction::class);
     }
 
     public function user()

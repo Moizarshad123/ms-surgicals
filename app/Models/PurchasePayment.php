@@ -11,6 +11,7 @@ class PurchasePayment extends Model
 
     protected $fillable = [
         'purchase_id',
+        'bank_transaction_id',
         'amount',
         'payment_date',
         'payment_method',
@@ -26,6 +27,11 @@ class PurchasePayment extends Model
     public function purchase()
     {
         return $this->belongsTo(Purchase::class);
+    }
+
+    public function bankTransaction()
+    {
+        return $this->belongsTo(BankTransaction::class);
     }
 
     public function user()

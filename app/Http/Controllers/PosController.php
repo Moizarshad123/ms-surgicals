@@ -26,7 +26,7 @@ class PosController extends Controller
 
     public function searchCustomers(Request $request)
     {
-        $q = $request->get('q', '');
+        $q = $request->get('q', $request->get('query', ''));
         $customers = Customer::where('name', 'like', "%{$q}%")
             ->orWhere('phone', 'like', "%{$q}%")
             ->limit(10)
@@ -36,6 +36,7 @@ class PosController extends Controller
                 'name' => $c->name,
                 'phone' => $c->phone,
                 'total_due' => (float) $c->total_due,
+                'advance_balance' => (float) $c->advance_balance,
             ]);
 
         return response()->json($customers);
@@ -44,10 +45,11 @@ class PosController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'order_date' => ['nullable', 'date'],
             'customer_id' => ['nullable', 'exists:customers,id'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
+            // 'discount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -56,6 +58,7 @@ class PosController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         $sale = DB::transaction(function () use ($validated, $request) {
@@ -79,6 +82,8 @@ class PosController extends Controller
             }
 
             $subTotal = 0;
+            $totalDiscount = 0;
+            $total = 0;
             $lineItems = [];
 
             foreach ($validated['items'] as $item) {
@@ -88,32 +93,74 @@ class PosController extends Controller
                     abort(422, "Insufficient stock for {$product->name}. Available: {$product->stock}");
                 }
 
+                $qty = (int) $item['quantity'];
                 $unitPrice = isset($item['price']) && is_numeric($item['price']) && (float) $item['price'] >= 0
                     ? (float) $item['price']
                     : (float) $product->sale_price;
 
-                $lineTotal = $unitPrice * $item['quantity'];
-                $subTotal += $lineTotal;
+                $discountPercent = isset($item['discount_percent']) && is_numeric($item['discount_percent'])
+                    ? (float) $item['discount_percent']
+                    : 0.0;
+
+                // Step 1: Calculate discount per unit = price * discount%
+                $discountPerUnit = round($unitPrice * ($discountPercent / 100), 4);
+                // Step 2: Calculate discounted unit price = price - discount per unit
+                $discountedPrice = max(0, round($unitPrice - $discountPerUnit, 4));
+                // Step 3: Calculate final subtotal = discounted unit price * qty
+                $lineTotal = round($discountedPrice * $qty, 2);
+                $lineRawTotal = round($unitPrice * $qty, 2);
+                $lineDiscountAmount = max(0, round($lineRawTotal - $lineTotal, 2));
+
+                $subTotal += $lineRawTotal;
+                $totalDiscount += $lineDiscountAmount;
+                $total += $lineTotal;
 
                 $lineItems[] = [
                     'product' => $product,
-                    'quantity' => $item['quantity'],
+                    'quantity' => $qty,
                     'price' => $unitPrice,
+                    'discount_percent' => $discountPercent,
+                    'discount_amount' => $lineDiscountAmount,
                     'total' => $lineTotal,
                 ];
             }
 
-            $discount = $validated['discount'] ?? 0;
-            $total = max($subTotal - $discount, 0);
+            $total = max($total, 0);
 
-            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : $total;
-            $paidAmount = min($paidInput, $total);
+
+            $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : 0.0;
+
+            // Check if customer has advance balance
+            $customerAdvance = 0.0;
+            if ($customer) {
+                $customer->refresh();
+                $customerAdvance = (float) $customer->advance_balance;
+            }
+
+            // Deduct available advance up to invoice total
+            $advanceToApply = min($customerAdvance, $total);
+            $netPayable = max(0, round($total - $advanceToApply, 2));
+
+            // If user paid more than net payable, store excess as customer advance
+            $excessPaid = max(0, round($paidInput - $netPayable, 2));
+            $paidToApply = min($paidInput, $netPayable);
+            $totalEffectivePaid = round($advanceToApply + $paidToApply, 2);
+
+            // Deduct applied advance from customer
+            if ($advanceToApply > 0 && $customer) {
+                $customer->decrement('advance_balance', $advanceToApply);
+            }
+
+            // If user paid more than net payable, store excess as customer advance
+            if ($excessPaid > 0 && $customer) {
+                $customer->increment('advance_balance', $excessPaid);
+            }
 
             // Determine payment status
-            if ($paidAmount >= $total) {
+            if ($totalEffectivePaid >= $total) {
                 $paymentStatus = 'paid';
                 $dueDate = null;
-            } elseif ($paidAmount > 0) {
+            } elseif ($totalEffectivePaid > 0) {
                 $paymentStatus = 'partial';
                 $dueDate = $validated['due_date'] ?? null;
             } else {
@@ -124,28 +171,48 @@ class PosController extends Controller
             $lastId  = Sale::lockForUpdate()->latest('id')->value('id') ?? 0;
             $orderNo = str_pad($lastId + 1, 3, '0', STR_PAD_LEFT); // 001, 002, 003 ...
 
+            $orderDate = !empty($validated['order_date'])
+                ? \Carbon\Carbon::parse($validated['order_date'])->setTimeFrom(now())
+                : now();
 
-            $sale = Sale::create([
-                'invoice_no' => 'INV-' . now()->format('Ymd') . '-' . $orderNo,
+            $sale = new Sale([
+                'invoice_no' => 'INV-' . $orderDate->format('Ymd') . '-' . $orderNo,
                 'customer_id' => $customer?->id,
                 'user_id' => auth()->id(),
                 'sub_total' => $subTotal,
-                'discount' => $discount,
+                'discount' => $totalDiscount,
                 'total' => $total,
-                'paid_amount' => $paidAmount,
+                'paid_amount' => $totalEffectivePaid,
+                'advance_adjusted' => $advanceToApply,
                 'due_date' => $dueDate,
                 'payment_status' => $paymentStatus,
                 'notes' => $validated['notes'] ?? null,
             ]);
+            $sale->created_at = $orderDate;
+            $sale->save();
 
-            // Record initial / advance payment
-            if ($paidAmount > 0) {
+            // Record advance adjustment payment if applied
+            if ($advanceToApply > 0) {
                 SalePayment::create([
                     'sale_id' => $sale->id,
-                    'amount' => $paidAmount,
-                    'payment_date' => now()->toDateString(),
+                    'amount' => $advanceToApply,
+                    'payment_date' => $orderDate->toDateString(),
+                    'payment_method' => 'advance_adjustment',
+                    'note' => 'Auto-adjusted from Customer Advance Balance (Rs. ' . number_format($advanceToApply, 2) . ')',
+                    'user_id' => auth()->id(),
+                ]);
+            }
+
+            // Record manual paid amount payment
+            if ($paidInput > 0) {
+                SalePayment::create([
+                    'sale_id' => $sale->id,
+                    'amount' => $paidInput,
+                    'payment_date' => $orderDate->toDateString(),
                     'payment_method' => $validated['payment_method'] ?? 'cash',
-                    'note' => $paidAmount < $total ? 'Advance / Down Payment' : 'Full Payment at Sale',
+                    'note' => $excessPaid > 0
+                        ? 'Payment at Sale (Includes Rs. ' . number_format($excessPaid, 2) . ' stored as advance)'
+                        : ($totalEffectivePaid < $total ? 'Advance / Down Payment' : 'Full Payment at Sale'),
                     'user_id' => auth()->id(),
                 ]);
             }
@@ -156,6 +223,8 @@ class PosController extends Controller
                     'product_id' => $line['product']->id,
                     'quantity' => $line['quantity'],
                     'price' => $line['price'],
+                    'discount_percent' => $line['discount_percent'],
+                    'discount_amount' => $line['discount_amount'],
                     'total' => $line['total'],
                 ]);
 
@@ -165,6 +234,8 @@ class PosController extends Controller
             return $sale;
         });
 
+        $customer = $sale->customer;
+
         return response()->json([
             'success' => true,
             'sale_id' => $sale->id,
@@ -172,6 +243,8 @@ class PosController extends Controller
             'is_credit' => $sale->payment_status !== 'paid',
             'due_amount' => (float) $sale->due_amount,
             'statement_url' => route('credit-sales.receipt', $sale->id),
+            'customer_id' => $customer?->id,
+            'customer_advance_balance' => $customer ? (float) $customer->fresh()->advance_balance : 0,
         ]);
     }
 
@@ -225,10 +298,11 @@ class PosController extends Controller
     public function update(Request $request, Sale $sale)
     {
         $validated = $request->validate([
+            'order_date' => ['nullable', 'date'],
             'customer_id' => ['nullable', 'exists:customers,id'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
+            // 'discount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -236,6 +310,7 @@ class PosController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         DB::transaction(function () use ($validated, $sale) {
@@ -265,6 +340,8 @@ class PosController extends Controller
 
             // 3. Process new items and deduct stock
             $subTotal = 0;
+            $totalDiscount = 0;
+            $total = 0;
             $lineItems = [];
 
             foreach ($validated['items'] as $item) {
@@ -276,14 +353,31 @@ class PosController extends Controller
 
                 $product->decrement('stock', $item['quantity']);
 
+                $qty = (int) $item['quantity'];
                 $unitPrice = (float) $item['price'];
-                $lineTotal = $unitPrice * (int) $item['quantity'];
-                $subTotal += $lineTotal;
+                $discountPercent = isset($item['discount_percent']) && is_numeric($item['discount_percent'])
+                    ? (float) $item['discount_percent']
+                    : 0.0;
+
+                // Step 1: Calculate discount per unit = price * discount%
+                $discountPerUnit = round($unitPrice * ($discountPercent / 100), 4);
+                // Step 2: Calculate discounted unit price = price - discount per unit
+                $discountedPrice = max(0, round($unitPrice - $discountPerUnit, 4));
+                // Step 3: Calculate final subtotal = discounted unit price * qty
+                $lineTotal = round($discountedPrice * $qty, 2);
+                $lineRawTotal = round($unitPrice * $qty, 2);
+                $lineDiscountAmount = max(0, round($lineRawTotal - $lineTotal, 2));
+
+                $subTotal += $lineRawTotal;
+                $totalDiscount += $lineDiscountAmount;
+                $total += $lineTotal;
 
                 $lineItems[] = [
                     'product_id' => $product->id,
-                    'quantity' => (int) $item['quantity'],
+                    'quantity' => $qty,
                     'price' => $unitPrice,
+                    'discount_percent' => $discountPercent,
+                    'discount_amount' => $lineDiscountAmount,
                     'total' => $lineTotal,
                 ];
             }
@@ -296,13 +390,14 @@ class PosController extends Controller
                     'product_id' => $line['product_id'],
                     'quantity' => $line['quantity'],
                     'price' => $line['price'],
+                    'discount_percent' => $line['discount_percent'],
+                    'discount_amount' => $line['discount_amount'],
                     'total' => $line['total'],
                 ]);
             }
 
             // 4. Calculate totals and payment status
-            $discount = isset($validated['discount']) ? (float) $validated['discount'] : 0;
-            $total = max(0, $subTotal - $discount);
+            $total = max(0, $total);
 
             $paidInput = isset($validated['paid_amount']) ? (float) $validated['paid_amount'] : (float) $sale->paid_amount;
             $paidAmount = min($paidInput, $total);
@@ -318,16 +413,28 @@ class PosController extends Controller
                 $dueDate = $validated['due_date'] ?? null;
             }
 
-            $sale->update([
+            $updateData = [
                 'customer_id' => $customer?->id ?? $sale->customer_id,
-                'sub_total' => $subTotal,
-                'discount' => $discount,
-                'total' => $total,
+                'sub_total'   => $subTotal,
+                'discount'    => $totalDiscount,
+                'total'       => $total,
                 'paid_amount' => $paidAmount,
-                'due_date' => $dueDate,
+                'due_date'    => $dueDate,
                 'payment_status' => $paymentStatus,
-                'notes' => $validated['notes'] ?? null,
-            ]);
+                'notes'          => $validated['notes'] ?? null,
+            ];
+
+            $sale->fill($updateData);
+            if (!empty($validated['order_date'])) {
+                $newDate = \Carbon\Carbon::parse($validated['order_date'])->setTimeFrom($sale->created_at ?? now());
+                $updateData['created_at'] = $newDate;
+
+                $sale->created_at = \Carbon\Carbon::parse($validated['order_date'])
+                                                    ->setTimeFrom($sale->created_at ?? now());
+            }
+            
+
+            $sale->save();
 
             // Sync payment record
             $firstPayment = $sale->payments()->first();
@@ -358,6 +465,13 @@ class PosController extends Controller
 
         $currentDue = max(0, (float) $sale->total - (float) $sale->paid_amount);
 
+        $advanceAdjusted = (float) $sale->advance_adjusted;
+        if ($advanceAdjusted <= 0) {
+            $advanceAdjusted = (float) $sale->payments()->where('payment_method', 'advance_adjustment')->sum('amount');
+        }
+        $cashPaidToday = max(0, (float) $sale->paid_amount - $advanceAdjusted);
+        $remainingPayable = max(0, (float) $sale->total - $advanceAdjusted);
+
         // Previous balance of the customer from all earlier sales
         $previousBalance = 0;
         if ($sale->customer_id) {
@@ -375,11 +489,21 @@ class PosController extends Controller
             if ($item->quantity <= 0) {
                 continue;
             }
+
+            $discPercent = (float) ($item->discount_percent ?? 0);
+            $discAmount = (float) ($item->discount_amount ?? 0);
+            $discDisplay = $discPercent > 0
+                ? rtrim(rtrim(number_format($discPercent, 2), '0'), '.') . '%'
+                : '-';
+
             $content .= '<tr>
                             <td style="text-align:center;">' . $item->quantity . '</td>
-                            <td style="text-align:left;">' . e($item->product->name) . '</td>
-                            <td>' . number_format($item->price) . '</td>
-                            <td>' . number_format($item->total) . '</td>
+                            <td style="text-align:left; word-break:break-word;">' . e($item->product->name ?? 'Item') .
+                                ($discAmount > 0 ? '<div style="font-size:9.5px; color:#555; line-height:1.2;">Disc: -Rs. ' . number_format($discAmount, 2) . '</div>' : '') .
+                            '</td>
+                            <td style="text-align:right;">' . number_format((float) $item->price, 2) . '</td>
+                            <td style="text-align:center;">' . $discDisplay . '</td>
+                            <td style="text-align:right;">' . number_format((float) $item->total, 2) . '</td>
                         </tr>';
         }
 
@@ -494,10 +618,11 @@ class PosController extends Controller
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="text-align:center;">Qty</th>
-                        <th style="text-align:left;">Item</th>
-                        <th>Price</th>
-                        <th>Total</th>
+                        <th style="width:12%; text-align:center;">Qty</th>
+                        <th style="width:40%; text-align:left;">Item</th>
+                        <th style="width:18%; text-align:right;">Price</th>
+                        <th style="width:12%; text-align:center;">Disc%</th>
+                        <th style="width:18%; text-align:right;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -509,13 +634,13 @@ class PosController extends Controller
 
             <table class="totals-table">
                 <tr>
-                    <td>Sub Total:</td>
-                    <td class="amt">' . number_format($sale->sub_total) . '</td>
+                    <td>Sub Total (' . $sale->items->count() . ' ' . ($sale->items->count() === 1 ? 'Item' : 'Items') . '):</td>
+                    <td class="amt">' . number_format((float) $sale->sub_total, 2) . '</td>
                 </tr>
-                ' . ($sale->discount > 0 ? '
+                ' . ((float) $sale->discount > 0 ? '
                 <tr>
-                    <td>Discount:</td>
-                    <td class="amt">' . number_format($sale->discount) . '</td>
+                    <td style="color:#dc3545; font-weight:bold;">Discount:</td>
+                    <td class="amt" style="color:#dc3545; font-weight:bold;">- ' . number_format((float) $sale->discount, 2) . '</td>
                 </tr>' : '') . '
             </table>
 
@@ -524,18 +649,28 @@ class PosController extends Controller
             <table class="totals-table">
                 <tr class="grand-row">
                     <td>Inv Total Amt:-</td>
-                    <td class="amt">' . number_format($sale->total) . '</td>
+                    <td class="amt">' . number_format((float) $sale->total, 2) . '</td>
                 </tr>
+                ' . ($advanceAdjusted > 0 ? '
+                <tr>
+                    <td><strong>Advance Payment:-</strong></td>
+                    <td class="amt" style="font-weight:bold; color:#198754;">- ' . number_format($advanceAdjusted, 2) . '</td>
+                </tr>
+                <tr>
+                    <td><strong>Remaining Payable:-</strong></td>
+                    <td class="amt" style="font-weight:bold;">' . number_format($remainingPayable, 2) . '</td>
+                </tr>
+                ' : '') . '
                 ' . ($sale->customer_id ? '
                 <tr>
                     <td>Previous Bal :-</td>
-                    <td class="amt">' . number_format($previousBalance) . '</td>
+                    <td class="amt">' . number_format($previousBalance, 2) . '</td>
                 </tr>
                 ' : '') . '
-                ' . ($sale->paid_amount > 0 ? '
+                ' . ($cashPaidToday > 0 ? '
                 <tr>
                     <td>' . ($currentDue > 0 ? 'Paid Today:-' : 'Paid:-') . '</td>
-                    <td class="amt">' . number_format($sale->paid_amount) . '</td>
+                    <td class="amt">' . number_format($cashPaidToday, 2) . '</td>
                 </tr>
                 ' : '') . '
             </table>
@@ -545,7 +680,7 @@ class PosController extends Controller
             <table class="totals-table">
                 <tr class="grand-row">
                     <td>' . ($sale->customer_id ? 'Total Net Due:-' : ($currentDue > 0 ? 'Remaining Due:-' : 'Change:-')) . '</td>
-                    <td class="amt">' . ($sale->customer_id ? number_format($totalNetDue) : ($currentDue > 0 ? number_format($currentDue) : number_format(abs($sale->paid_amount - $sale->total)))) . '</td>
+                    <td class="amt">' . ($sale->customer_id ? number_format($totalNetDue, 2) : ($currentDue > 0 ? number_format($currentDue, 2) : number_format(max(0, $cashPaidToday - $remainingPayable), 2))) . '</td>
                 </tr>
             </table>
 

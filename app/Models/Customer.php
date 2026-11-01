@@ -10,9 +10,13 @@ class Customer extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'phone'];
+    protected $fillable = ['name', 'phone', 'advance_balance'];
 
     protected $appends = ['total_due'];
+
+    protected $casts = [
+        'advance_balance' => 'decimal:2',
+    ];
 
     public function sales()
     {

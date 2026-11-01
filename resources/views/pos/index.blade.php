@@ -258,21 +258,22 @@
         background: #ffffff;
         border: 1px solid #eaf0f6;
         border-radius: 10px;
-        padding: 10px 12px;
+        padding: 9px 11px;
         margin-bottom: 8px;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        flex-direction: column;
+        gap: 6px;
         transition: background 0.15s ease, border-color 0.15s ease;
     }
     .cart-item-row:hover {
         background: #fafbfd;
         border-color: #dce5ee;
     }
-    .cart-item-details {
-        flex: 1;
-        min-width: 0;
-        padding-right: 10px;
+    .cart-item-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
     }
     .cart-item-title {
         font-size: 0.86rem;
@@ -281,10 +282,59 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex: 1;
     }
-    .cart-item-sub {
-        font-size: 0.75rem;
-        color: #8c9aa6;
+    .cart-item-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
+    .cart-discount-wrapper {
+        display: inline-flex;
+        align-items: center;
+        background: #fdf6f6;
+        border: 1px solid #f8d7da;
+        border-radius: 7px;
+        padding: 2px 4px;
+        width: 66px;
+        gap: 1px;
+    }
+    .cart-discount-input {
+        width: 44px;
+        border: none;
+        background: transparent;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-align: right;
+        color: #dc3545;
+        padding: 0;
+        outline: none;
+    }
+    .cart-discount-input:focus {
+        background: #ffffff;
+    }
+    .cart-discount-suffix {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #dc3545;
+    }
+    .cart-price-tag {
+        font-size: 0.78rem;
+        color: #495057;
+        background: #f1f4f8;
+        padding: 3px 6px;
+        border-radius: 6px;
+        white-space: nowrap;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        transition: background 0.1s ease;
+    }
+    .cart-price-tag:hover {
+        background: #e2e8f0;
+        color: #0d6efd;
     }
     .qty-stepper {
         display: flex;
@@ -294,8 +344,8 @@
         padding: 2px;
     }
     .qty-stepper-btn {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
         border: none;
         background: #ffffff;
         border-radius: 6px;
@@ -314,27 +364,33 @@
         color: #ffffff;
     }
     .qty-stepper-value {
-        width: 34px;
+        width: 30px;
         text-align: center;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 600;
         color: #293134;
         border: none;
         background: transparent;
     }
     .cart-item-total {
-        min-width: 80px;
+        min-width: 75px;
         text-align: right;
+    }
+    .cart-item-final-amt {
         font-weight: 700;
-        font-size: 0.92rem;
+        font-size: 0.88rem;
         color: #293134;
+        line-height: 1.1;
+    }
+    .cart-item-disc-amt {
+        font-size: 0.72rem;
+        line-height: 1.1;
     }
     .btn-delete-item {
         background: none;
         border: none;
         color: #adb5bd;
-        padding: 4px;
-        margin-left: 6px;
+        padding: 2px 4px;
         cursor: pointer;
         border-radius: 4px;
         transition: color 0.15s ease;
@@ -494,14 +550,13 @@
                 Point of Sale (POS)
             </div>
             <div class="text-muted small">
-                Cashier: <span class="fw-semibold text-dark">{{ auth()->user()->name ?? 'Cashier' }}</span> 
-                &bull; <span id="posLiveClock" class="fw-semibold"></span>
+                <span id="posLiveClock" class="fw-semibold"></span>
             </div>
         </div>
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <!-- Shortcut Help Tag -->
+        {{-- <!-- Shortcut Help Tag -->
         <span class="badge bg-light text-secondary border px-3 py-2 d-none d-md-inline-block">
             <i class="bi bi-keyboard me-1"></i> <kbd class="bg-white text-dark border px-1">F2</kbd> Search &bull; <kbd class="bg-white text-dark border px-1">F4</kbd> Clear Cart
         </span>
@@ -510,7 +565,7 @@
         <a href="{{ route('sales-returns.create') }}" class="btn btn-outline-warning btn-sm px-3 d-flex align-items-center gap-1" title="Sales Return">
             <i class="bi bi-arrow-counterclockwise"></i>
             <span class="d-none d-sm-inline">Sales Return</span>
-        </a>
+        </a> --}}
 
         <!-- Quick Sidebar / Full-Width Toggle Button -->
         <button type="button" id="btnToggleSidebar" class="btn btn-outline-secondary btn-sm px-3 d-flex align-items-center gap-2" title="Toggle Sidebar">
@@ -670,19 +725,17 @@
             <div class="cart-footer">
                 <div class="summary-row">
                     <span>Subtotal</span>
-                    <span class="fw-semibold text-dark" id="subTotalDisplay">Rs. 0.0</span>
+                    <span class="fw-semibold text-dark" id="subTotalDisplay">Rs. 0.00</span>
                 </div>
-                <div class="summary-row">
-                    <span>Discount (Rs.)</span>
-                    <div style="width: 110px;">
-                        <input type="number" id="discountInput" class="form-control form-control-sm text-end" value="0" min="0" oninput="renderCart()">
-                    </div>
+                <div class="summary-row text-danger" id="summaryDiscountRow" style="display:none;">
+                    <span class="fw-semibold">Item Discounts</span>
+                    <span class="fw-semibold" id="summaryDiscountDisplay">- Rs. 0.00</span>
                 </div>
 
                 <!-- Grand Total -->
                 <div class="grand-total-row">
                     <span class="grand-total-label">Grand Total</span>
-                    <span class="grand-total-amount" id="grandTotalDisplay">Rs. 0.0</span>
+                    <span class="grand-total-amount" id="grandTotalDisplay">Rs. 0.00</span>
                 </div>
 
                 <!-- Checkout Button -->
@@ -717,10 +770,34 @@
                     </button>
                 </div>
 
-                <!-- Highlight Total Payable -->
-                <div class="modal-payable-box">
-                    <div class="modal-payable-label">Total Amount Payable</div>
-                    <div class="modal-payable-amount" id="modalPayableTotal">Rs. 0.0</div>
+                <!-- Highlight Total Payable & Advance Adjustment -->
+                <div class="modal-payable-box mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="modal-payable-label">Original Invoice Total:</span>
+                        <span class="modal-payable-amount fs-5" id="modalPayableTotal">Rs. 0.0</span>
+                    </div>
+                    <div id="modalAdvanceDeductionRow" class="d-none justify-content-between align-items-center text-success mt-2 pt-2 border-top" style="border-color: rgba(255,255,255,0.2) !important;">
+                        <span class="small fw-semibold text-white-50"><i class="bi bi-wallet2 me-1"></i> Advance Payment:</span>
+                        <span class="fw-bold text-white fs-6" id="modalAdvanceDeductionAmount">- Rs. 0.0</span>
+                    </div>
+                    <div id="modalNetPayableRow" class="d-none justify-content-between align-items-center mt-1 pt-1 border-top" style="border-color: rgba(255,255,255,0.2) !important;">
+                        <span class="small fw-bold text-white">Remaining Payable Amount:</span>
+                        <span class="fw-bold text-white fs-5" id="modalNetPayableAmount">Rs. 0.0</span>
+                    </div>
+                </div>
+
+                <!-- Order Date (Custom previous/current/future date option) -->
+                <div class="mb-3 p-2 rounded-2 bg-light border">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label small fw-semibold text-dark mb-0">
+                            <i class="bi bi-calendar-event me-1 text-primary"></i> Sale Order Date
+                        </label>
+                        <span class="badge bg-white text-muted border small" id="orderDateBadge">Today</span>
+                    </div>
+                    <input type="date" id="modalOrderDate" class="form-control form-control-sm mt-1 fw-semibold" value="{{ date('Y-m-d') }}" onchange="onOrderDateChange()">
+                    <div class="text-muted small mt-1" style="font-size: 0.73rem;">
+                        Allows recording sales for previous dates or future dates.
+                    </div>
                 </div>
 
                 <!-- Customer Details -->
@@ -743,9 +820,12 @@
                         <input type="text" id="modalCustomerPhone" class="form-control" placeholder="03xx-xxxxxxx">
                     </div>
                     <div id="customerExistingAlert" class="col-12 d-none">
-                        <div class="alert alert-info py-1 px-2 small mb-0 d-flex justify-content-between align-items-center">
+                        <div class="alert alert-info py-2 px-3 small mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2 rounded-2">
                             <span><i class="bi bi-person-check me-1"></i> Existing Customer Matched</span>
-                            <span id="custPrevDueBadge" class="fw-bold"></span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="custAdvanceBadge" class="badge bg-success text-white fw-bold d-none"></span>
+                                <span id="custPrevDueBadge" class="fw-bold"></span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -818,9 +898,17 @@
                     <label class="form-label small fw-semibold text-dark mb-1">Unit Price (Rs.)</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light fw-bold text-muted">Rs.</span>
-                        <input type="number" step="0.01" min="0" max="99999" id="modalEditItemPrice" class="form-control form-control-lg fw-bold text-primary" placeholder="0.00">
+                        <input type="number" step="0.01" min="0" max="99999" id="modalEditItemPrice" class="form-control form-control-lg fw-bold text-primary" placeholder="0.00" oninput="updateModalDiscountPreview()">
                     </div>
-                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">Enter the new price for this item.</div>
+                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">Enter the base price for this item.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-dark mb-1">Discount (%)</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" max="100" id="modalEditItemDiscount" class="form-control form-control-lg fw-bold text-danger text-end" placeholder="0" oninput="updateModalDiscountPreview()">
+                        <span class="input-group-text bg-light fw-bold text-muted">%</span>
+                    </div>
+                    <div class="text-muted small mt-1" style="font-size: 0.75rem;" id="modalEditDiscountPreview">Discount per unit: Rs. 0.00 | Net Price: Rs. 0.00</div>
                 </div>
                 <div class="form-check form-switch mt-2">
                     <input class="form-check-input" type="checkbox" id="updateMasterProductPriceCheck">
@@ -1027,7 +1115,7 @@
                 }
                 return;
             }
-            cart.push({ ...product, quantity: 1 });
+            cart.push({ ...product, quantity: 1, discount_percent: 0 });
             if (typeof toastr !== 'undefined') {
                 toastr.success(`${product.name} added to cart`, '', { timeOut: 1200 });
             }
@@ -1077,6 +1165,84 @@
         renderCart();
     }
 
+    function setDiscount(id, val) {
+        const item = cart.find(i => i.id === id);
+        if (!item) return;
+
+        let disc = parseFloat(val);
+        if (isNaN(disc) || disc < 0) disc = 0;
+        if (disc > 100) disc = 100;
+        item.discount_percent = disc;
+
+        // Step 1: Calculate discount per unit = price * (discountPercent / 100)
+        const discountPerUnit = item.price * (item.discount_percent / 100);
+        // Step 2: Calculate discounted unit price = price - discountPerUnit
+        const discountedPrice = Math.max(0, item.price - discountPerUnit);
+        // Step 3: Calculate final subtotal = discountedPrice * qty
+        const lineTotal = discountedPrice * item.quantity;
+        const lineRawTotal = item.price * item.quantity;
+        const lineDiscountAmount = Math.max(0, lineRawTotal - lineTotal);
+
+        const totalEl = document.getElementById(`cart-item-total-${id}`);
+        if (totalEl) {
+            totalEl.innerHTML = `
+                <div class="cart-item-final-amt">Rs. ${lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                ${item.discount_percent > 0 ? `<div class="cart-item-disc-amt text-danger small">(-Rs. ${lineDiscountAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})</div>` : ''}
+            `;
+        }
+
+        updateCartTotalsOnly();
+    }
+
+    function updateCartTotalsOnly() {
+        let rawSubtotal = 0;
+        let totalDiscount = 0;
+        let total = 0;
+
+        cart.forEach(item => {
+            const qty = item.quantity;
+            const price = item.price;
+            const discountPercent = item.discount_percent || 0;
+
+            const discountPerUnit = price * (discountPercent / 100);
+            const discountedPrice = Math.max(0, price - discountPerUnit);
+            const lineTotal = discountedPrice * qty;
+            const lineRaw = price * qty;
+
+            rawSubtotal += lineRaw;
+            totalDiscount += (lineRaw - lineTotal);
+            total += lineTotal;
+        });
+
+        const subTotalDisplay = document.getElementById('subTotalDisplay');
+        if (subTotalDisplay) {
+            subTotalDisplay.innerText = 'Rs. ' + rawSubtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        const discRow = document.getElementById('summaryDiscountRow');
+        const discDisplay = document.getElementById('summaryDiscountDisplay');
+        if (discRow && discDisplay) {
+            if (totalDiscount > 0) {
+                discRow.style.display = 'flex';
+                discDisplay.innerText = '- Rs. ' + totalDiscount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } else {
+                discRow.style.display = 'none';
+            }
+        }
+
+        const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+        if (grandTotalDisplay) {
+            grandTotalDisplay.innerText = 'Rs. ' + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        const checkoutBtnText = document.getElementById('checkoutBtnText');
+        if (checkoutBtnText && cart.length > 0) {
+            checkoutBtnText.innerText = `Pay & Bill (Rs. ${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
+        }
+
+        updateCheckoutTotals();
+    }
+
     function removeItem(id) {
         cart = cart.filter(i => i.id !== id);
         renderCart();
@@ -1119,45 +1285,48 @@
             cartList.innerHTML = '';
 
             cart.forEach(item => {
-                const lineTotal = item.price * item.quantity;
+                const discountPercent = item.discount_percent || 0;
+                const discountPerUnit = item.price * (discountPercent / 100);
+                const discountedPrice = Math.max(0, item.price - discountPerUnit);
+                const lineTotal = discountedPrice * item.quantity;
+                const lineRaw = item.price * item.quantity;
+                const lineDiscountAmount = Math.max(0, lineRaw - lineTotal);
+
                 const row = document.createElement('div');
                 row.className = 'cart-item-row';
+                row.id = `cart-row-${item.id}`;
                 row.innerHTML = `
-                    <div class="cart-item-details">
+                    <div class="cart-item-top">
                         <div class="cart-item-title" title="${item.name}">${item.name}</div>
-                        <div class="cart-item-sub" onclick="openEditPriceModal(${item.id})" style="cursor: pointer;" title="Click to change price">
-                            Rs. ${item.price.toLocaleString()} each <i class="bi bi-pencil-square text-primary small ms-1"></i>
+                        <button type="button" class="btn-delete-item" onclick="removeItem(${item.id})" title="Remove item">
+                            <i class="bi bi-x-circle fs-6"></i>
+                        </button>
+                    </div>
+                    <div class="cart-item-controls">
+                        <div class="qty-stepper" title="Quantity">
+                            <button type="button" class="qty-stepper-btn" onclick="changeQty(${item.id}, -1)">&minus;</button>
+                            <input type="text" class="qty-stepper-value" value="${item.quantity}" onchange="setDirectQty(${item.id}, this.value)">
+                            <button type="button" class="qty-stepper-btn" onclick="changeQty(${item.id}, 1)">&plus;</button>
+                        </div>
+                        <div class="cart-discount-wrapper" title="Discount (%)">
+                            <input type="number" step="0.01" min="0" max="100" class="cart-discount-input" value="${item.discount_percent || 0}" oninput="setDiscount(${item.id}, this.value)" placeholder="0" id="cart-disc-${item.id}">
+                            <span class="cart-discount-suffix">%</span>
+                        </div>
+                        <div class="cart-price-tag" onclick="openEditPriceModal(${item.id})" title="Click to edit price / discount">
+                            Rs. ${item.price.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}
+                            <i class="bi bi-pencil-square ms-1 text-primary" style="font-size:0.75rem;"></i>
+                        </div>
+                        <div class="cart-item-total" id="cart-item-total-${item.id}">
+                            <div class="cart-item-final-amt">Rs. ${lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            ${discountPercent > 0 ? `<div class="cart-item-disc-amt text-danger small">(-Rs. ${lineDiscountAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})</div>` : ''}
                         </div>
                     </div>
-                    <div class="qty-stepper">
-                        <button type="button" class="qty-stepper-btn" onclick="changeQty(${item.id}, -1)">&minus;</button>
-                        <input type="text" class="qty-stepper-value" value="${item.quantity}" onchange="setDirectQty(${item.id}, this.value)">
-                        <button type="button" class="qty-stepper-btn" onclick="changeQty(${item.id}, 1)">&plus;</button>
-                    </div>
-                    <div class="cart-item-total" onclick="openEditPriceModal(${item.id})" style="cursor: pointer;" title="Click to change price">
-                        Rs. ${lineTotal.toLocaleString()}
-                    </div>
-                    <button type="button" class="btn-delete-item" onclick="removeItem(${item.id})" title="Remove item">
-                        <i class="bi bi-x-circle fs-6"></i>
-                    </button>
                 `;
                 cartList.appendChild(row);
             });
         }
 
-        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const total = Math.max(subTotal - discount, 0);
-
-        document.getElementById('subTotalDisplay').innerText = 'Rs. ' + subTotal.toLocaleString();
-        document.getElementById('grandTotalDisplay').innerText = 'Rs. ' + total.toLocaleString();
-
-        if (cart.length > 0) {
-            document.getElementById('checkoutBtnText').innerText = `Pay & Bill (Rs. ${total.toLocaleString()})`;
-        }
-
-        // Keep checkout modal synced
-        document.getElementById('modalPayableTotal').innerText = 'Rs. ' + total.toLocaleString();
+        updateCartTotalsOnly();
         calculateChange();
     }
 
@@ -1173,7 +1342,10 @@
 
         document.getElementById('modalEditProductName').innerText = item.name;
         document.getElementById('modalEditItemPrice').value = item.price;
+        document.getElementById('modalEditItemDiscount').value = item.discount_percent || 0;
         document.getElementById('updateMasterProductPriceCheck').checked = false;
+
+        updateModalDiscountPreview();
 
         const modalEl = document.getElementById('editPriceModal');
         const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
@@ -1186,6 +1358,17 @@
         }, 300);
     }
 
+    function updateModalDiscountPreview() {
+        const price = parseFloat(document.getElementById('modalEditItemPrice').value) || 0;
+        const disc = parseFloat(document.getElementById('modalEditItemDiscount').value) || 0;
+        const discPerUnit = price * (disc / 100);
+        const netPrice = Math.max(0, price - discPerUnit);
+        const previewEl = document.getElementById('modalEditDiscountPreview');
+        if (previewEl) {
+            previewEl.innerText = `Discount per unit: Rs. ${discPerUnit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} | Net Price: Rs. ${netPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+    }
+
     function saveCartPrice() {
         if (!editingItemId) return;
         const item = cart.find(i => i.id === editingItemId);
@@ -1193,6 +1376,11 @@
 
         const priceVal = document.getElementById('modalEditItemPrice').value;
         const newPrice = parseFloat(priceVal);
+
+        const discVal = document.getElementById('modalEditItemDiscount').value;
+        let newDiscount = parseFloat(discVal);
+        if (isNaN(newDiscount) || newDiscount < 0) newDiscount = 0;
+        if (newDiscount > 100) newDiscount = 100;
 
         if (isNaN(newPrice) || newPrice < 0) {
             if (typeof toastr !== 'undefined') {
@@ -1204,6 +1392,7 @@
         }
 
         item.price = newPrice;
+        item.discount_percent = newDiscount;
 
         const updateMaster = document.getElementById('updateMasterProductPriceCheck').checked;
         if (updateMaster) {
@@ -1240,11 +1429,18 @@
         if (modalInstance) modalInstance.hide();
 
         if (typeof toastr !== 'undefined') {
-            toastr.success(`Price updated to Rs. ${newPrice.toLocaleString()}`);
+            toastr.success(`Item updated: Rs. ${newPrice.toLocaleString()} (Disc: ${newDiscount}%)`);
         }
     }
 
     document.getElementById('modalEditItemPrice').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveCartPrice();
+        }
+    });
+
+    document.getElementById('modalEditItemDiscount').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             saveCartPrice();
@@ -1280,13 +1476,70 @@
 
     let currentSaleType = 'cash';
     let matchedCustomerId = null;
+    let matchedCustomerAdvance = 0;
+    let currentAdvanceApplied = 0;
+    let currentNetPayable = 0;
     const existingCustomers = @json($customers);
+
+    function updateCheckoutTotals() {
+        let total = 0;
+        let rawSubtotal = 0;
+        let totalDiscount = 0;
+
+        cart.forEach(item => {
+            const qty = item.quantity;
+            const price = item.price;
+            const discountPercent = item.discount_percent || 0;
+
+            const discountPerUnit = price * (discountPercent / 100);
+            const discountedPrice = Math.max(0, price - discountPerUnit);
+            const lineTotal = discountedPrice * qty;
+            const lineRaw = price * qty;
+
+            rawSubtotal += lineRaw;
+            totalDiscount += (lineRaw - lineTotal);
+            total += lineTotal;
+        });
+
+        currentAdvanceApplied = Math.min(matchedCustomerAdvance, total);
+        currentNetPayable = Math.max(0, total - currentAdvanceApplied);
+
+        document.getElementById('modalPayableTotal').innerText = 'Rs. ' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const advanceRow = document.getElementById('modalAdvanceDeductionRow');
+        const netPayableRow = document.getElementById('modalNetPayableRow');
+
+        if (currentAdvanceApplied > 0) {
+            if (advanceRow) {
+                advanceRow.classList.remove('d-none');
+                advanceRow.classList.add('d-flex');
+                document.getElementById('modalAdvanceDeductionAmount').innerText = '- Rs. ' + currentAdvanceApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            if (netPayableRow) {
+                netPayableRow.classList.remove('d-none');
+                netPayableRow.classList.add('d-flex');
+                document.getElementById('modalNetPayableAmount').innerText = 'Rs. ' + currentNetPayable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        } else {
+            if (advanceRow) {
+                advanceRow.classList.add('d-none');
+                advanceRow.classList.remove('d-flex');
+            }
+            if (netPayableRow) {
+                netPayableRow.classList.add('d-none');
+                netPayableRow.classList.remove('d-flex');
+            }
+        }
+
+        const paidInput = document.getElementById('paidAmountInput');
+        if (currentSaleType === 'cash') {
+            paidInput.value = currentNetPayable.toFixed(2);
+        }
+        calculateChange();
+    }
 
     function setSaleType(type) {
         currentSaleType = type;
-        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const total = Math.max(subTotal - discount, 0);
 
         const btnCash = document.getElementById('btnTypeCash');
         const btnCredit = document.getElementById('btnTypeCredit');
@@ -1306,8 +1559,8 @@
             btnCredit.classList.add('text-muted');
 
             paidLabel.innerText = 'Amount Paid by Customer (Rs.)';
-            paidHelp.innerText = 'Exact bill';
-            paidInput.value = total;
+            paidHelp.innerText = currentAdvanceApplied > 0 ? 'Remaining Net Payable' : 'Exact bill';
+            paidInput.value = currentNetPayable.toFixed(2);
             quickCash.classList.remove('d-none');
             creditSection.classList.add('d-none');
             reqName.classList.add('d-none');
@@ -1321,8 +1574,8 @@
 
             paidLabel.innerText = 'Advance / Down Payment (Rs.)';
             paidHelp.innerText = 'e.g. Rs. 25,000 or Rs. 0';
-            // Default advance: if user already entered an amount keep it, else default to 0 for credit
-            if (parseFloat(paidInput.value) >= total) {
+            // Default advance: if user already entered an amount keep it, else default to empty for credit
+            if (parseFloat(paidInput.value) >= currentNetPayable) {
                 paidInput.value = '';
             }
             quickCash.classList.add('d-none');
@@ -1339,14 +1592,26 @@
         const alertBox = document.getElementById('customerExistingAlert');
         const phoneInput = document.getElementById('modalCustomerPhone');
         const dueBadge = document.getElementById('custPrevDueBadge');
+        const advBadge = document.getElementById('custAdvanceBadge');
 
         const matched = existingCustomers.find(c => c.name.toLowerCase() === inputName.toLowerCase());
         if (matched) {
             matchedCustomerId = matched.id;
+            matchedCustomerAdvance = parseFloat(matched.advance_balance) || 0;
             if (matched.phone) {
                 phoneInput.value = matched.phone;
             }
             alertBox.classList.remove('d-none');
+
+            if (advBadge) {
+                if (matchedCustomerAdvance > 0) {
+                    advBadge.innerText = 'Advance: Rs. ' + matchedCustomerAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    advBadge.classList.remove('d-none');
+                } else {
+                    advBadge.classList.add('d-none');
+                }
+            }
+
             const prevDue = parseFloat(matched.total_due) || 0;
             if (dueBadge) {
                 if (prevDue > 0) {
@@ -1359,19 +1624,45 @@
             }
         } else {
             matchedCustomerId = null;
+            matchedCustomerAdvance = 0;
             alertBox.classList.add('d-none');
+            if (advBadge) advBadge.classList.add('d-none');
+        }
+
+        updateCheckoutTotals();
+    }
+
+    function onOrderDateChange() {
+        const dateInput = document.getElementById('modalOrderDate');
+        const badge = document.getElementById('orderDateBadge');
+        if (!dateInput || !badge) return;
+
+        const selected = dateInput.value;
+        const today = new Date().toISOString().split('T')[0];
+
+        if (!selected || selected === today) {
+            badge.innerText = 'Today';
+            badge.className = 'badge bg-white text-muted border small';
+        } else if (selected < today) {
+            badge.innerText = 'Previous Date';
+            badge.className = 'badge bg-warning-subtle text-warning border border-warning-subtle small';
+        } else {
+            badge.innerText = 'Future Date';
+            badge.className = 'badge bg-info-subtle text-info border border-info-subtle small';
         }
     }
 
     function prepareCheckoutModal() {
-        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const total = Math.max(subTotal - discount, 0);
+        document.getElementById('modalCustomerName').value     = cartCustomerName.value || 'Walk-in Customer';
+        document.getElementById('modalCustomerPhone').value    = cartCustomerPhone.value || '';
+        document.getElementById('checkoutError').innerText     = '';
 
-        document.getElementById('modalCustomerName').value = cartCustomerName.value || 'Walk-in Customer';
-        document.getElementById('modalCustomerPhone').value = cartCustomerPhone.value || '';
-        document.getElementById('modalPayableTotal').innerText = 'Rs. ' + total.toLocaleString();
-        document.getElementById('checkoutError').innerText = '';
+        // Reset or initialize order date to today
+        const orderDateEl = document.getElementById('modalOrderDate');
+        if (orderDateEl && !orderDateEl.value) {
+            orderDateEl.value = new Date().toISOString().split('T')[0];
+        }
+        onOrderDateChange();
 
         onCustomerInput();
         setSaleType('cash'); // default to cash
@@ -1384,12 +1675,8 @@
     });
 
     function setQuickCash(amount) {
-        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const total = Math.max(subTotal - discount, 0);
-
         if (amount === 'exact') {
-            document.getElementById('paidAmountInput').value = total;
+            document.getElementById('paidAmountInput').value = currentNetPayable.toFixed(2);
         } else {
             document.getElementById('paidAmountInput').value = amount;
         }
@@ -1397,21 +1684,18 @@
     }
 
     function calculateChange() {
-        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const total = Math.max(subTotal - discount, 0);
-        const paid = parseFloat(document.getElementById('paidAmountInput').value) || 0;
+        const paid  = parseFloat(document.getElementById('paidAmountInput').value) || 0;
 
         const changeAmountEl = document.getElementById('changeDueAmount');
-        const changeLabelEl = document.getElementById('changeDueLabel');
-        const changeBox = document.getElementById('changeDueBox');
-        const creditSection = document.getElementById('creditFieldsSection');
+        const changeLabelEl  = document.getElementById('changeDueLabel');
+        const changeBox      = document.getElementById('changeDueBox');
+        const creditSection  = document.getElementById('creditFieldsSection');
 
-        if (paid >= total) {
-            const change = paid - total;
+        if (paid >= currentNetPayable) {
+            const change = paid - currentNetPayable;
             changeLabelEl.innerText = 'Change to Return:';
             changeLabelEl.className = 'small fw-semibold text-success';
-            changeAmountEl.innerText = 'Rs. ' + change.toLocaleString();
+            changeAmountEl.innerText = 'Rs. ' + change.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             changeAmountEl.className = 'fw-bold fs-6 text-success';
             changeBox.style.background = '#f4fbf7';
             changeBox.style.borderColor = '#c7ecd9';
@@ -1420,15 +1704,15 @@
                 creditSection.classList.add('d-none');
             }
         } else {
-            const balance = total - paid;
+            const balance = currentNetPayable - paid;
             changeLabelEl.innerText = currentSaleType === 'credit' ? 'Remaining Balance (Udhaar):' : 'Remaining Balance:';
             changeLabelEl.className = 'small fw-semibold text-danger';
-            changeAmountEl.innerText = 'Rs. ' + balance.toLocaleString();
+            changeAmountEl.innerText = 'Rs. ' + balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             changeAmountEl.className = 'fw-bold fs-6 text-danger';
             changeBox.style.background = '#fdf4f4';
             changeBox.style.borderColor = '#f5c6cb';
 
-            // If user enters less than total, automatically show credit details
+            // If user enters less than net payable, automatically show credit details
             creditSection.classList.remove('d-none');
             document.getElementById('reqCustName').classList.remove('d-none');
             document.getElementById('reqCustPhone').classList.remove('d-none');
@@ -1447,16 +1731,22 @@
             return;
         }
 
-        const subTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const total = Math.max(subTotal - discount, 0);
+        let total = 0;
+        cart.forEach(item => {
+            const discountPercent = item.discount_percent || 0;
+            const discountPerUnit = item.price * (discountPercent / 100);
+            const discountedPrice = Math.max(0, item.price - discountPerUnit);
+            total += (discountedPrice * item.quantity);
+        });
+        total = Math.max(0, total);
+
         const paidAmount = parseFloat(document.getElementById('paidAmountInput').value) || 0;
 
         const customerName = document.getElementById('modalCustomerName').value.trim();
         const customerPhone = document.getElementById('modalCustomerPhone').value.trim();
         const notes = document.getElementById('modalSaleNotes').value.trim();
 
-        const isCreditSale = (currentSaleType === 'credit') || (paidAmount < total);
+        const isCreditSale = (currentSaleType === 'credit') || (paidAmount < currentNetPayable);
 
         // Validation for Credit / Installment Sales
         if (isCreditSale) {
@@ -1472,16 +1762,23 @@
             }
         }
 
+        const orderDate = document.getElementById('modalOrderDate') ? document.getElementById('modalOrderDate').value : null;
+
         const payload = {
+            order_date: orderDate,
             customer_id: matchedCustomerId,
             customer_name: customerName || 'Walk-in Customer',
             customer_phone: customerPhone || null,
-            discount: discount,
             paid_amount: paidAmount,
             due_date: null,
             notes: notes || null,
             payment_method: 'cash',
-            items: cart.map(i => ({ product_id: i.id, quantity: i.quantity, price: i.price })),
+            items: cart.map(i => ({
+                product_id: i.id,
+                quantity: i.quantity,
+                price: i.price,
+                discount_percent: parseFloat(i.discount_percent) || 0
+            })),
         };
 
         const btnSubmit = document.getElementById('btnSubmitSale');
@@ -1512,11 +1809,22 @@
 
             // Reset cart and inputs
             cart = [];
-            document.getElementById('discountInput').value = 0;
+            const discInputEl = document.getElementById('discountInput');
+            if (discInputEl) discInputEl.value = 0;
             cartCustomerName.value = '';
             cartCustomerPhone.value = '';
             document.getElementById('displayCustomerName').innerText = 'Walk-in Customer';
             document.getElementById('displayCustomerPhone').innerText = '—';
+            matchedCustomerId = null;
+            matchedCustomerAdvance = 0;
+            currentAdvanceApplied = 0;
+            currentNetPayable = 0;
+            if (data.customer_id && typeof existingCustomers !== 'undefined' && Array.isArray(existingCustomers)) {
+                const cIdx = existingCustomers.findIndex(c => c.id == data.customer_id);
+                if (cIdx !== -1) {
+                    existingCustomers[cIdx].advance_balance = data.customer_advance_balance;
+                }
+            }
             renderCart();
 
             // Hide modal

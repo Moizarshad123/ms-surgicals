@@ -61,79 +61,48 @@
 
     <!-- Bank Accounts Summary Cards Row -->
     <div class="row g-3 mb-4">
-        <!-- Bank Islami -->
-        @if($bankIslami)
+        @foreach($banks as $b)
+            @php
+                $isMeezan = stripos($b->name, 'meezan') !== false;
+                $cardClass = $isMeezan ? 'bank-card-meezan' : 'bank-card-islami';
+                $badgeBg = $isMeezan ? 'bg-success bg-opacity-10 text-success' : 'bg-primary bg-opacity-10 text-primary';
+                $icon = $isMeezan ? 'bi-bank2' : 'bi-bank';
+                $linkColor = $isMeezan ? 'text-success' : 'text-primary';
+            @endphp
             <div class="col-xl-4 col-md-6">
-                <div class="bank-card bank-card-islami d-flex flex-column justify-content-between">
+                <div class="bank-card {{ $cardClass }} d-flex flex-column justify-content-between">
                     <div>
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div class="d-flex align-items-center gap-2">
-                                <div class="bank-icon-badge bg-primary bg-opacity-10 text-primary">
-                                    <i class="bi bi-bank"></i>
+                                <div class="bank-icon-badge {{ $badgeBg }}">
+                                    <i class="bi {{ $icon }}"></i>
                                 </div>
                                 <div>
-                                    <h5 class="fw-bold text-dark mb-0">{{ $bankIslami->name }}</h5>
-                                    <small class="text-muted">{{ $bankIslami->account_title ?: 'TG Surgicals' }}</small>
+                                    <h5 class="fw-bold text-dark mb-0">{{ $b->name }}</h5>
+                                    <small class="text-muted">{{ $b->account_title ?: 'TG Surgicals' }}</small>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openEditBankModal({{ json_encode($bankIslami) }})" title="Edit Account Details">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openEditBankModal({{ json_encode($b) }})" title="Edit Account Details">
                                 <i class="bi bi-pencil"></i>
                             </button>
                         </div>
                         <div class="mt-3">
                             <small class="text-muted fw-semibold text-uppercase">Current Balance</small>
-                            <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($bankIslami->current_balance) }}</h3>
+                            <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($b->current_balance, 2) }}</h3>
                             <div class="small text-muted font-monospace">
-                                A/C: {{ $bankIslami->account_number ?: 'Not Set' }} &bull; {{ $bankIslami->branch ?: 'Main Branch' }}
+                                A/C: {{ $b->account_number ?: 'Not Set' }} &bull; {{ $b->branch ?: 'Main Branch' }}
                             </div>
                         </div>
                     </div>
                     <div class="border-top pt-2 mt-3 d-flex justify-content-between small text-muted">
-                        <span>Opening: <strong>Rs. {{ number_format($bankIslami->opening_balance) }}</strong></span>
-                        <a href="{{ route('reports.bank', ['bank_id' => $bankIslami->id]) }}" class="text-primary text-decoration-none fw-semibold">
+                        <span>Opening: <strong>Rs. {{ number_format($b->opening_balance, 2) }}</strong></span>
+                        <a href="{{ route('reports.bank', ['bank_id' => $b->id]) }}" class="{{ $linkColor }} text-decoration-none fw-semibold">
                             Statement <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>
                 </div>
             </div>
-        @endif
-
-        <!-- Meezan Bank -->
-        @if($meezanBank)
-            <div class="col-xl-4 col-md-6">
-                <div class="bank-card bank-card-meezan d-flex flex-column justify-content-between">
-                    <div>
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="bank-icon-badge bg-success bg-opacity-10 text-success">
-                                    <i class="bi bi-bank2"></i>
-                                </div>
-                                <div>
-                                    <h5 class="fw-bold text-dark mb-0">{{ $meezanBank->name }}</h5>
-                                    <small class="text-muted">{{ $meezanBank->account_title ?: 'TG Surgicals' }}</small>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openEditBankModal({{ json_encode($meezanBank) }})" title="Edit Account Details">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                        </div>
-                        <div class="mt-3">
-                            <small class="text-muted fw-semibold text-uppercase">Current Balance</small>
-                            <h3 class="fw-bold text-dark mb-1">Rs. {{ number_format($meezanBank->current_balance) }}</h3>
-                            <div class="small text-muted font-monospace">
-                                A/C: {{ $meezanBank->account_number ?: 'Not Set' }} &bull; {{ $meezanBank->branch ?: 'Main Branch' }}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border-top pt-2 mt-3 d-flex justify-content-between small text-muted">
-                        <span>Opening: <strong>Rs. {{ number_format($meezanBank->opening_balance) }}</strong></span>
-                        <a href="{{ route('reports.bank', ['bank_id' => $meezanBank->id]) }}" class="text-success text-decoration-none fw-semibold">
-                            Statement <i class="bi bi-arrow-right"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        @endif
+        @endforeach
 
         <!-- Combined Total Card -->
         <div class="col-xl-4 col-md-12">
@@ -146,7 +115,7 @@
                             </div>
                             <div>
                                 <h5 class="fw-bold text-dark mb-0">Total Bank Balance</h5>
-                                <small class="text-muted">Bank Islami + Meezan Bank</small>
+                                <small class="text-muted">{{ $banks->pluck('name')->join(' + ') }}</small>
                             </div>
                         </div>
                         <a href="{{ route('reports.bank') }}" class="btn btn-sm btn-outline-secondary" title="View Full Report">
@@ -155,9 +124,9 @@
                     </div>
                     <div class="mt-3">
                         <small class="text-muted fw-semibold text-uppercase">Total Funds In Banks</small>
-                        <h3 class="fw-bold mb-1" style="color: #ff6e40;">Rs. {{ number_format($totalBankBalance) }}</h3>
+                        <h3 class="fw-bold mb-1" style="color: #ff6e40;">Rs. {{ number_format($totalBankBalance, 2) }}</h3>
                         <div class="small text-muted">
-                            Available combined liquid funds across both banks
+                            Available combined liquid funds across all banks
                         </div>
                     </div>
                 </div>
@@ -262,12 +231,18 @@
                                     <span class="text-muted font-monospace small">{{ $tx->reference_no ?: '—' }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-light text-secondary border px-2 py-1">
-                                        {{ $tx->category ?: 'General' }}
-                                    </span>
+                                    @if($tx->is_capital_transfer)
+                                        <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1">
+                                            <i class="bi bi-bank me-1"></i>Capital Transfer
+                                        </span>
+                                    @else
+                                        <span class="badge bg-light text-secondary border px-2 py-1">
+                                            {{ $tx->category ?: 'General' }}
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="text-end fw-bold {{ $tx->type === 'credit' ? 'text-success' : 'text-danger' }}">
-                                    {{ $tx->type === 'credit' ? '+' : '-' }} Rs. {{ number_format($tx->amount) }}
+                                    {{ $tx->type === 'credit' ? '+' : '-' }} Rs. {{ number_format($tx->amount, 2) }}
                                 </td>
                                 <td>
                                     <span class="text-muted small" title="{{ $tx->description }}">
@@ -356,7 +331,7 @@
                         <!-- Amount -->
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold text-dark">Amount (Rs.) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="1" name="amount" id="addTxAmount" class="form-control fw-bold" placeholder="e.g. 50000" required>
+                            <input type="number" step="0.01" min="0.01" name="amount" id="addTxAmount" class="form-control fw-bold" placeholder="e.g. 50000" required>
                             <!-- Outstanding due hint shown when a supplier/customer is picked -->
                             <div id="addTxDueHint" class="form-text text-info fw-semibold d-none"></div>
                         </div>
@@ -377,6 +352,7 @@
                                     <option value="Cash Withdrawal">Cash Withdrawal</option>
                                     <option value="Owner Drawing">Owner Drawing</option>
                                     <option value="Salary Payment">Salary Payment</option>
+                                    <option value="Capital">Capital</option>
                                     <option value="Other">Other</option>
                                 </optgroup>
                             </select>
@@ -483,7 +459,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label small fw-semibold text-dark">Amount (Rs.) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="1" name="amount" id="editTxAmount" class="form-control fw-bold" required>
+                            <input type="number" step="0.01" min="0.01" name="amount" id="editTxAmount" class="form-control fw-bold" required>
                         </div>
 
                         <div class="col-md-6">

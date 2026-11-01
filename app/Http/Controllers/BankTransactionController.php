@@ -9,6 +9,7 @@ use App\Models\Purchase;
 use App\Models\PurchasePayment;
 use App\Models\Sale;
 use App\Models\SalePayment;
+use App\Models\SupplierAdvance;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,8 +64,8 @@ class BankTransactionController extends Controller
         // Calculate KPI Metrics
         $totalBankBalance = $banks->sum(fn($b) => $b->current_balance);
 
-        $bankIslami = $banks->firstWhere('name', 'Bank Islami');
-        $meezanBank = $banks->firstWhere('name', 'Meezan Bank');
+        $bankIslami = $banks->first(fn($b) => stripos($b->name, 'islami') !== false);
+        $meezanBank = $banks->first(fn($b) => stripos($b->name, 'meezan') !== false);
 
         // Period filter totals
         $periodQuery = clone $query;
@@ -166,9 +167,8 @@ class BankTransactionController extends Controller
         }
 
         DB::transaction(function () use ($validated, $request) {
-            // Remove helper fields before creating the bank transaction
-            $txData = collect($validated)->except(['linked_supplier', 'linked_customer_id'])->toArray();
-            BankTransaction::create($txData);
+            // Save transaction including linked helper fields
+            $bankTx = BankTransaction::create($validated);
 
             $amount   = (float) $validated['amount'];
             $date     = $validated['transaction_date'];
@@ -198,23 +198,47 @@ class BankTransactionController extends Controller
 
                     $due        = (float) $purchase->due_amount;
                     $toApply    = min($remaining, $due);
-                    $remaining -= $toApply;
+                    $remaining  = round($remaining - $toApply, 2);
 
                     PurchasePayment::create([
-                        'purchase_id'    => $purchase->id,
-                        'amount'         => $toApply,
-                        'payment_date'   => $date,
-                        'payment_method' => 'bank_transfer',
-                        'note'           => 'Bank Transfer – ' . ($validated['reference_no'] ?? 'via bank'),
-                        'user_id'        => $validated['user_id'],
+                        'bank_transaction_id' => $bankTx->id,
+                        'purchase_id'         => $purchase->id,
+                        'amount'              => $toApply,
+                        'payment_date'        => $date,
+                        'payment_method'      => 'bank_transfer',
+                        'note'                => 'Bank Transfer – ' . ($validated['reference_no'] ?? 'via bank'),
+                        'user_id'             => $validated['user_id'],
                     ]);
 
-                    $newPaid   = (float) $purchase->paid_amount + $toApply;
+                    $newPaid   = min((float) $purchase->total, (float) $purchase->paid_amount + $toApply);
                     $newStatus = $newPaid >= (float) $purchase->total ? 'paid' : 'partial';
                     $purchase->update([
                         'paid_amount'    => $newPaid,
                         'payment_status' => $newStatus,
                     ]);
+                }
+
+                // If excess remains, store into supplier advance balance
+                if ($remaining > 0) {
+                    $remaining = round($remaining, 2);
+                    $suppAdv = SupplierAdvance::firstOrCreate(
+                        ['supplier_name' => $supplierName],
+                        ['advance_balance' => 0]
+                    );
+                    $suppAdv->increment('advance_balance', $remaining);
+
+                    $latestPurchase = Purchase::where('supplier_name', $supplierName)->latest('id')->first();
+                    if ($latestPurchase) {
+                        PurchasePayment::create([
+                            'bank_transaction_id' => $bankTx->id,
+                            'purchase_id'         => $latestPurchase->id,
+                            'amount'              => $remaining,
+                            'payment_date'        => $date,
+                            'payment_method'      => 'bank_transfer',
+                            'note'                => 'Advance Payment (Stored in Supplier Advance Balance)',
+                            'user_id'             => $validated['user_id'],
+                        ]);
+                    }
                 }
             }
 
@@ -224,6 +248,7 @@ class BankTransactionController extends Controller
                 && !empty($validated['linked_customer_id'])
             ) {
                 $customerId = (int) $validated['linked_customer_id'];
+                $customer   = Customer::find($customerId);
 
                 // Find all pending sales for this customer, oldest first
                 $pendingSales = Sale::where('customer_id', $customerId)
@@ -241,23 +266,43 @@ class BankTransactionController extends Controller
 
                     $due        = (float) $sale->due_amount;
                     $toApply    = min($remaining, $due);
-                    $remaining -= $toApply;
+                    $remaining  = round($remaining - $toApply, 2);
 
                     SalePayment::create([
-                        'sale_id'        => $sale->id,
-                        'amount'         => $toApply,
-                        'payment_date'   => $date,
-                        'payment_method' => 'bank_transfer',
-                        'note'           => 'Bank Transfer – ' . ($validated['reference_no'] ?? 'via bank'),
-                        'user_id'        => $validated['user_id'],
+                        'bank_transaction_id' => $bankTx->id,
+                        'sale_id'             => $sale->id,
+                        'amount'              => $toApply,
+                        'payment_date'        => $date,
+                        'payment_method'      => 'bank_transfer',
+                        'note'                => 'Bank Transfer – ' . ($validated['reference_no'] ?? 'via bank'),
+                        'user_id'             => $validated['user_id'],
                     ]);
 
-                    $newPaid   = (float) $sale->paid_amount + $toApply;
+                    $newPaid   = min((float) $sale->total, (float) $sale->paid_amount + $toApply);
                     $newStatus = $newPaid >= (float) $sale->total ? 'paid' : 'partial';
                     $sale->update([
                         'paid_amount'    => $newPaid,
                         'payment_status' => $newStatus,
                     ]);
+                }
+
+                // If excess remains, store into customer advance balance
+                if ($remaining > 0 && $customer) {
+                    $remaining = round($remaining, 2);
+                    $customer->increment('advance_balance', $remaining);
+
+                    $latestSale = Sale::where('customer_id', $customerId)->latest('id')->first();
+                    if ($latestSale) {
+                        SalePayment::create([
+                            'bank_transaction_id' => $bankTx->id,
+                            'sale_id'             => $latestSale->id,
+                            'amount'              => $remaining,
+                            'payment_date'        => $date,
+                            'payment_method'      => 'bank_transfer',
+                            'note'                => 'Advance Deposit (Stored in Customer Advance Balance)',
+                            'user_id'             => $validated['user_id'],
+                        ]);
+                    }
                 }
             }
         });
@@ -296,9 +341,144 @@ class BankTransactionController extends Controller
      */
     public function destroy(BankTransaction $bankTransaction)
     {
-        $bankTransaction->delete();
+        DB::transaction(function () use ($bankTransaction) {
+            // 1. Revert any linked PurchasePayments
+            $purchasePayments = PurchasePayment::where('bank_transaction_id', $bankTransaction->id)->get();
+            foreach ($purchasePayments as $payment) {
+                $purchase = $payment->purchase;
+                $amount   = (float) $payment->amount;
 
-        return redirect()->route('banks.index')->with('success', 'Bank transaction deleted successfully.');
+                if (str_contains($payment->note ?? '', 'Advance Payment (Stored in Supplier Advance Balance)')
+                    || $payment->payment_method === 'advance_adjustment'
+                ) {
+                    if ($purchase && !empty($purchase->supplier_name)) {
+                        $advance = SupplierAdvance::where('supplier_name', $purchase->supplier_name)->first();
+                        if ($advance) {
+                            $advance->advance_balance = max(0, round((float) $advance->advance_balance - $amount, 2));
+                            $advance->save();
+                        }
+                    }
+                } else {
+                    if ($purchase) {
+                        $newPaid   = max(0, round((float) $purchase->paid_amount - min($amount, (float) $purchase->paid_amount), 2));
+                        $newStatus = $newPaid <= 0 ? 'due' : ($newPaid < (float) $purchase->total ? 'partial' : 'paid');
+                        $purchase->update([
+                            'paid_amount'    => $newPaid,
+                            'payment_status' => $newStatus,
+                        ]);
+                    }
+                }
+                $payment->delete();
+            }
+
+            // 2. Revert any linked SalePayments
+            $salePayments = SalePayment::where('bank_transaction_id', $bankTransaction->id)->get();
+            foreach ($salePayments as $payment) {
+                $sale   = $payment->sale;
+                $amount = (float) $payment->amount;
+
+                if (str_contains($payment->note ?? '', 'Advance Deposit (Stored in Customer Advance Balance)')
+                    || $payment->payment_method === 'advance_adjustment'
+                ) {
+                    $customer = $sale?->customer;
+                    if ($customer) {
+                        $customer->advance_balance = max(0, round((float) $customer->advance_balance - $amount, 2));
+                        $customer->save();
+                    }
+                } else {
+                    if ($sale) {
+                        $newPaid   = max(0, round((float) $sale->paid_amount - min($amount, (float) $sale->paid_amount), 2));
+                        $newStatus = $newPaid <= 0 ? 'due' : ($newPaid < (float) $sale->total ? 'partial' : 'paid');
+                        $sale->update([
+                            'paid_amount'    => $newPaid,
+                            'payment_status' => $newStatus,
+                        ]);
+                    }
+                }
+                $payment->delete();
+            }
+
+            // 3. Fallback for unlinked legacy supplier payments
+            $cat = strtolower(trim($bankTransaction->category ?? ''));
+            if ($purchasePayments->isEmpty() && ($cat === 'supplier payment' || str_contains($cat, 'supplier'))) {
+                $supplierName = $bankTransaction->linked_supplier ?: $bankTransaction->person_name;
+                $fallbackPayments = PurchasePayment::whereNull('bank_transaction_id')
+                    ->whereIn('payment_method', ['bank', 'bank_transfer'])
+                    ->where('payment_date', $bankTransaction->transaction_date->toDateString())
+                    ->whereHas('purchase', function ($q) use ($supplierName) {
+                        $q->where('supplier_name', $supplierName);
+                    })
+                    ->get();
+
+                if ($fallbackPayments->isNotEmpty() && abs($fallbackPayments->sum('amount') - (float) $bankTransaction->amount) < 0.01) {
+                    foreach ($fallbackPayments as $payment) {
+                        $purchase = $payment->purchase;
+                        $amount   = (float) $payment->amount;
+                        if (str_contains($payment->note ?? '', 'Advance Payment')) {
+                            if ($purchase && !empty($purchase->supplier_name)) {
+                                $advance = SupplierAdvance::where('supplier_name', $purchase->supplier_name)->first();
+                                if ($advance) {
+                                    $advance->advance_balance = max(0, round((float) $advance->advance_balance - $amount, 2));
+                                    $advance->save();
+                                }
+                            }
+                        } elseif ($purchase) {
+                            $newPaid   = max(0, round((float) $purchase->paid_amount - min($amount, (float) $purchase->paid_amount), 2));
+                            $newStatus = $newPaid <= 0 ? 'due' : ($newPaid < (float) $purchase->total ? 'partial' : 'paid');
+                            $purchase->update([
+                                'paid_amount'    => $newPaid,
+                                'payment_status' => $newStatus,
+                            ]);
+                        }
+                        $payment->delete();
+                    }
+                }
+            }
+
+            // 4. Fallback for unlinked legacy customer receipts
+            if ($salePayments->isEmpty() && ($cat === 'customer receipt' || str_contains($cat, 'customer'))) {
+                $customerId = $bankTransaction->linked_customer_id;
+                $personName = $bankTransaction->person_name;
+                $fallbackSales = SalePayment::whereNull('bank_transaction_id')
+                    ->whereIn('payment_method', ['bank', 'bank_transfer'])
+                    ->where('payment_date', $bankTransaction->transaction_date->toDateString())
+                    ->whereHas('sale', function ($q) use ($customerId, $personName) {
+                        if ($customerId) {
+                            $q->where('customer_id', $customerId);
+                        } else {
+                            $q->whereHas('customer', fn($c) => $c->where('name', $personName));
+                        }
+                    })
+                    ->get();
+
+                if ($fallbackSales->isNotEmpty() && abs($fallbackSales->sum('amount') - (float) $bankTransaction->amount) < 0.01) {
+                    foreach ($fallbackSales as $payment) {
+                        $sale   = $payment->sale;
+                        $amount = (float) $payment->amount;
+                        if (str_contains($payment->note ?? '', 'Advance Deposit')) {
+                            $customer = $sale?->customer;
+                            if ($customer) {
+                                $customer->advance_balance = max(0, round((float) $customer->advance_balance - $amount, 2));
+                                $customer->save();
+                            }
+                        } elseif ($sale) {
+                            $newPaid   = max(0, round((float) $sale->paid_amount - min($amount, (float) $sale->paid_amount), 2));
+                            $newStatus = $newPaid <= 0 ? 'due' : ($newPaid < (float) $sale->total ? 'partial' : 'paid');
+                            $sale->update([
+                                'paid_amount'    => $newPaid,
+                                'payment_status' => $newStatus,
+                            ]);
+                        }
+                        $payment->delete();
+                    }
+                }
+            }
+
+            // 5. Delete the bank transaction record
+            $bankTransaction->delete();
+        });
+
+        return redirect()->route('banks.index')->with('success', 'Bank transaction deleted and all linked customer/supplier balances reversed successfully.');
     }
 
     /**
