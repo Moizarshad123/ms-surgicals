@@ -696,18 +696,56 @@
                     <span class="small fw-semibold text-secondary">
                         <i class="bi bi-person me-1"></i> Customer Info
                     </span>
-                    <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-primary" id="btnCustomerToggle">
-                        Edit
+                    <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-primary" id="btnCustomerToggle" title="Add new customer">
+                        <i class="bi bi-person-plus me-1"></i>+ New
                     </button>
                 </div>
-                <div class="d-flex align-items-center justify-content-between">
-                    <span class="small fw-bold text-dark" id="displayCustomerName">Walk-in Customer</span>
-                    <span class="small text-muted" id="displayCustomerPhone">—</span>
+
+                <!-- Customer Dropdown Selector -->
+                <div class="mb-1">
+                    <select id="cartCustomerSelect" class="form-select form-select-sm fw-semibold" style="border-radius: 8px;">
+                        <option value="" data-name="Walk-in Customer" data-phone="" data-advance="0" data-due="0">Walk-in Customer</option>
+                        <option value="__new__" class="fw-bold text-primary">+ Add New Customer...</option>
+                        @php
+                            $validCustomers = $customers->filter(fn($c) => strtolower(trim($c->name)) !== 'walk-in customer');
+                        @endphp
+                        @if($validCustomers->count() > 0)
+                            <optgroup label="Registered Customers ({{ $validCustomers->count() }})" id="customerOptGroup">
+                                @foreach($validCustomers as $c)
+                                    <option value="{{ $c->id }}"
+                                            data-name="{{ $c->name }}"
+                                            data-phone="{{ $c->phone ?? '' }}"
+                                            data-advance="{{ (float)$c->advance_balance }}"
+                                            data-due="{{ (float)$c->total_due }}">
+                                        {{ $c->name }} {{ $c->phone ? '('.$c->phone.')' : '' }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @endif
+                    </select>
                 </div>
 
-                <!-- Quick Inline Customer Inputs (Hidden by default) -->
-                <div id="customerInlineForm" class="mt-2 d-none">
-                    <input type="text" id="cartCustomerName" class="form-control form-control-sm mb-1" placeholder="Customer Name (Walk-in)">
+                <!-- Selected Customer Phone & Balance Display Row -->
+                <div class="d-flex align-items-center justify-content-between small text-muted">
+                    <div class="text-truncate me-2">
+                        <i class="bi bi-telephone text-secondary me-1" style="font-size: 0.75rem;"></i>
+                        <span id="displayCustomerPhone" class="fw-semibold text-dark">—</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                        <span id="cartCustomerAdvanceBadge" class="badge bg-success-subtle text-success border border-success-subtle d-none" style="font-size: 0.72rem;"></span>
+                        <span id="cartCustomerDueBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle d-none" style="font-size: 0.72rem;"></span>
+                    </div>
+                </div>
+
+                <span id="displayCustomerName" class="d-none">Walk-in Customer</span>
+
+                <!-- Quick Inline Customer Inputs (Hidden by default, shown for New Customer) -->
+                <div id="customerInlineForm" class="mt-2 p-2 bg-light rounded-2 border d-none">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="small fw-bold text-dark"><i class="bi bi-person-plus text-primary me-1"></i>New Customer</span>
+                        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none" id="btnCancelNewCustomer" title="Cancel">&times; Cancel</button>
+                    </div>
+                    <input type="text" id="cartCustomerName" list="customersDatalist" class="form-control form-control-sm mb-1" placeholder="Customer Name *">
                     <input type="text" id="cartCustomerPhone" class="form-control form-control-sm" placeholder="Phone (e.g. 0300-1234567)">
                 </div>
             </div>
@@ -817,7 +855,7 @@
                         <label class="form-label small fw-semibold text-dark">
                             Phone Number <span id="reqCustPhone" class="text-danger d-none">*</span>
                         </label>
-                        <input type="text" id="modalCustomerPhone" class="form-control" placeholder="03xx-xxxxxxx">
+                        <input type="text" id="modalCustomerPhone" class="form-control" placeholder="03xx-xxxxxxx" oninput="onCustomerInput()">
                     </div>
                     <div id="customerExistingAlert" class="col-12 d-none">
                         <div class="alert alert-info py-2 px-3 small mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2 rounded-2">
@@ -1448,31 +1486,18 @@
     });
 
     // -------------------------------------------------------------
-    // Customer Inline Toggle
+    // Customer Selection & Toggle
     // -------------------------------------------------------------
-    const btnCustomerToggle = document.getElementById('btnCustomerToggle');
-    const customerInlineForm = document.getElementById('customerInlineForm');
-    const cartCustomerName = document.getElementById('cartCustomerName');
-    const cartCustomerPhone = document.getElementById('cartCustomerPhone');
-
-    btnCustomerToggle.addEventListener('click', function () {
-        customerInlineForm.classList.toggle('d-none');
-        if (!customerInlineForm.classList.contains('d-none')) {
-            cartCustomerName.focus();
-        }
-    });
-
-    cartCustomerName.addEventListener('input', function () {
-        const val = this.value.trim();
-        document.getElementById('displayCustomerName').innerText = val || 'Walk-in Customer';
-        document.getElementById('modalCustomerName').value = val;
-    });
-
-    cartCustomerPhone.addEventListener('input', function () {
-        const val = this.value.trim();
-        document.getElementById('displayCustomerPhone').innerText = val || '—';
-        document.getElementById('modalCustomerPhone').value = val;
-    });
+    const btnCustomerToggle    = document.getElementById('btnCustomerToggle');
+    const btnCancelNewCustomer = document.getElementById('btnCancelNewCustomer');
+    const customerInlineForm   = document.getElementById('customerInlineForm');
+    const cartCustomerSelect   = document.getElementById('cartCustomerSelect');
+    const cartCustomerName     = document.getElementById('cartCustomerName');
+    const cartCustomerPhone    = document.getElementById('cartCustomerPhone');
+    const displayCustomerPhone = document.getElementById('displayCustomerPhone');
+    const displayCustomerName  = document.getElementById('displayCustomerName');
+    const cartCustomerAdvBadge = document.getElementById('cartCustomerAdvanceBadge');
+    const cartCustomerDueBadge = document.getElementById('cartCustomerDueBadge');
 
     let currentSaleType = 'cash';
     let matchedCustomerId = null;
@@ -1480,6 +1505,162 @@
     let currentAdvanceApplied = 0;
     let currentNetPayable = 0;
     const existingCustomers = @json($customers);
+
+    function setCustomerFromModel(c) {
+        if (!c || !c.id) {
+            matchedCustomerId = null;
+            matchedCustomerAdvance = 0;
+            if (displayCustomerName) displayCustomerName.innerText = 'Walk-in Customer';
+            if (displayCustomerPhone) displayCustomerPhone.innerText = '—';
+            if (cartCustomerName) cartCustomerName.value = '';
+            if (cartCustomerPhone) cartCustomerPhone.value = '';
+            const mName = document.getElementById('modalCustomerName');
+            const mPhone = document.getElementById('modalCustomerPhone');
+            if (mName) mName.value = 'Walk-in Customer';
+            if (mPhone) mPhone.value = '';
+            if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+            if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+            onCustomerInput();
+            return;
+        }
+
+        matchedCustomerId = c.id;
+        matchedCustomerAdvance = parseFloat(c.advance_balance) || 0;
+        const due = parseFloat(c.total_due) || 0;
+
+        if (displayCustomerName) displayCustomerName.innerText = c.name;
+        if (displayCustomerPhone) displayCustomerPhone.innerText = c.phone || '—';
+        if (cartCustomerName) cartCustomerName.value = c.name;
+        if (cartCustomerPhone) cartCustomerPhone.value = c.phone || '';
+        const mName = document.getElementById('modalCustomerName');
+        const mPhone = document.getElementById('modalCustomerPhone');
+        if (mName) mName.value = c.name;
+        if (mPhone) mPhone.value = c.phone || '';
+
+        // Badges in sidebar
+        if (cartCustomerAdvBadge) {
+            if (matchedCustomerAdvance > 0) {
+                cartCustomerAdvBadge.innerText = 'Adv: Rs. ' + matchedCustomerAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                cartCustomerAdvBadge.classList.remove('d-none');
+            } else {
+                cartCustomerAdvBadge.classList.add('d-none');
+            }
+        }
+
+        if (cartCustomerDueBadge) {
+            if (due > 0) {
+                cartCustomerDueBadge.innerText = 'Due: Rs. ' + due.toLocaleString();
+                cartCustomerDueBadge.classList.remove('d-none');
+            } else {
+                cartCustomerDueBadge.classList.add('d-none');
+            }
+        }
+
+        onCustomerInput();
+    }
+
+    if (cartCustomerSelect) {
+        cartCustomerSelect.addEventListener('change', function () {
+            const val = this.value;
+            if (val === '__new__') {
+                if (customerInlineForm) customerInlineForm.classList.remove('d-none');
+                if (cartCustomerName) {
+                    cartCustomerName.value = '';
+                    cartCustomerName.focus();
+                }
+                if (cartCustomerPhone) cartCustomerPhone.value = '';
+                if (displayCustomerPhone) displayCustomerPhone.innerText = '—';
+                if (displayCustomerName) displayCustomerName.innerText = 'Walk-in Customer';
+                matchedCustomerId = null;
+                matchedCustomerAdvance = 0;
+                if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+                if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+                const mName = document.getElementById('modalCustomerName');
+                const mPhone = document.getElementById('modalCustomerPhone');
+                if (mName) mName.value = '';
+                if (mPhone) mPhone.value = '';
+                onCustomerInput();
+            } else if (val === '') {
+                if (customerInlineForm) customerInlineForm.classList.add('d-none');
+                setCustomerFromModel(null);
+            } else {
+                if (customerInlineForm) customerInlineForm.classList.add('d-none');
+                const cust = existingCustomers.find(c => c.id == val);
+                if (cust) {
+                    setCustomerFromModel(cust);
+                }
+            }
+        });
+    }
+
+    if (btnCustomerToggle) {
+        btnCustomerToggle.addEventListener('click', function () {
+            if (!customerInlineForm) return;
+            customerInlineForm.classList.toggle('d-none');
+            if (!customerInlineForm.classList.contains('d-none')) {
+                if (cartCustomerSelect) cartCustomerSelect.value = '__new__';
+                if (cartCustomerName) {
+                    cartCustomerName.value = '';
+                    cartCustomerName.focus();
+                }
+                if (cartCustomerPhone) cartCustomerPhone.value = '';
+                matchedCustomerId = null;
+                matchedCustomerAdvance = 0;
+                if (displayCustomerPhone) displayCustomerPhone.innerText = '—';
+                if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+                if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+            } else {
+                if (cartCustomerSelect) cartCustomerSelect.value = '';
+                setCustomerFromModel(null);
+            }
+        });
+    }
+
+    if (btnCancelNewCustomer) {
+        btnCancelNewCustomer.addEventListener('click', function () {
+            if (customerInlineForm) customerInlineForm.classList.add('d-none');
+            if (cartCustomerSelect) cartCustomerSelect.value = '';
+            setCustomerFromModel(null);
+        });
+    }
+
+    if (cartCustomerName) {
+        cartCustomerName.addEventListener('input', function () {
+            const val = this.value.trim();
+            if (displayCustomerName) displayCustomerName.innerText = val || 'Walk-in Customer';
+            const mName = document.getElementById('modalCustomerName');
+            if (mName) mName.value = val;
+
+            if (val) {
+                const match = existingCustomers.find(c => c.name.toLowerCase() === val.toLowerCase());
+                if (match) {
+                    if (cartCustomerSelect) cartCustomerSelect.value = match.id;
+                    setCustomerFromModel(match);
+                    return;
+                }
+            }
+            matchedCustomerId = null;
+            matchedCustomerAdvance = 0;
+            if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+            if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+            onCustomerInput();
+        });
+    }
+
+    cartCustomerPhone.addEventListener('input', function () {
+        const val = this.value.trim();
+        if (displayCustomerPhone) displayCustomerPhone.innerText = val || '—';
+        const mPhone = document.getElementById('modalCustomerPhone');
+        if (mPhone) mPhone.value = val;
+
+        if (val && !matchedCustomerId) {
+            const match = existingCustomers.find(c => c.phone && c.phone.trim() === val);
+            if (match) {
+                if (cartCustomerSelect) cartCustomerSelect.value = match.id;
+                setCustomerFromModel(match);
+            }
+        }
+    });
 
     function updateCheckoutTotals() {
         let total = 0;
@@ -1588,20 +1769,47 @@
     }
 
     function onCustomerInput() {
-        const inputName = document.getElementById('modalCustomerName').value.trim();
+        const nameInputEl = document.getElementById('modalCustomerName');
+        const phoneInputEl = document.getElementById('modalCustomerPhone');
+        const inputName = nameInputEl ? nameInputEl.value.trim() : '';
+        const inputPhone = phoneInputEl ? phoneInputEl.value.trim() : '';
         const alertBox = document.getElementById('customerExistingAlert');
-        const phoneInput = document.getElementById('modalCustomerPhone');
         const dueBadge = document.getElementById('custPrevDueBadge');
         const advBadge = document.getElementById('custAdvanceBadge');
 
-        const matched = existingCustomers.find(c => c.name.toLowerCase() === inputName.toLowerCase());
+        let matched = null;
+        if (matchedCustomerId) {
+            matched = existingCustomers.find(c => c.id == matchedCustomerId);
+        }
+        if (!matched && inputName && inputName.toLowerCase() !== 'walk-in customer') {
+            matched = existingCustomers.find(c => c.name.toLowerCase() === inputName.toLowerCase());
+        }
+        if (!matched && inputPhone) {
+            matched = existingCustomers.find(c => c.phone && c.phone.trim() === inputPhone);
+        }
+
         if (matched) {
             matchedCustomerId = matched.id;
             matchedCustomerAdvance = parseFloat(matched.advance_balance) || 0;
-            if (matched.phone) {
-                phoneInput.value = matched.phone;
+            if (matched.phone && phoneInputEl && !phoneInputEl.value) {
+                phoneInputEl.value = matched.phone;
             }
-            alertBox.classList.remove('d-none');
+            if (cartCustomerSelect && cartCustomerSelect.value != matched.id) {
+                cartCustomerSelect.value = matched.id;
+            }
+            if (displayCustomerPhone) {
+                displayCustomerPhone.innerText = matched.phone || (phoneInputEl ? phoneInputEl.value : '') || '—';
+            }
+            if (cartCustomerName && !cartCustomerName.value) {
+                cartCustomerName.value = matched.name;
+            }
+            if (cartCustomerPhone && !cartCustomerPhone.value && matched.phone) {
+                cartCustomerPhone.value = matched.phone;
+            }
+            if (displayCustomerName) {
+                displayCustomerName.innerText = matched.name;
+            }
+            if (alertBox) alertBox.classList.remove('d-none');
 
             if (advBadge) {
                 if (matchedCustomerAdvance > 0) {
@@ -1622,11 +1830,30 @@
                     dueBadge.className = 'fw-bold text-success';
                 }
             }
+
+            if (cartCustomerAdvBadge) {
+                if (matchedCustomerAdvance > 0) {
+                    cartCustomerAdvBadge.innerText = 'Adv: Rs. ' + matchedCustomerAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    cartCustomerAdvBadge.classList.remove('d-none');
+                } else {
+                    cartCustomerAdvBadge.classList.add('d-none');
+                }
+            }
+            if (cartCustomerDueBadge) {
+                if (prevDue > 0) {
+                    cartCustomerDueBadge.innerText = 'Due: Rs. ' + prevDue.toLocaleString();
+                    cartCustomerDueBadge.classList.remove('d-none');
+                } else {
+                    cartCustomerDueBadge.classList.add('d-none');
+                }
+            }
         } else {
             matchedCustomerId = null;
             matchedCustomerAdvance = 0;
-            alertBox.classList.add('d-none');
+            if (alertBox) alertBox.classList.add('d-none');
             if (advBadge) advBadge.classList.add('d-none');
+            if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+            if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
         }
 
         updateCheckoutTotals();
@@ -1807,19 +2034,60 @@
                 window.open(data.invoice_url, '_blank');
             }
 
-            // Reset cart and inputs
+            // Reset cart and customer selection
             cart = [];
             const discInputEl = document.getElementById('discountInput');
             if (discInputEl) discInputEl.value = 0;
-            cartCustomerName.value = '';
-            cartCustomerPhone.value = '';
-            document.getElementById('displayCustomerName').innerText = 'Walk-in Customer';
-            document.getElementById('displayCustomerPhone').innerText = '—';
-            matchedCustomerId = null;
-            matchedCustomerAdvance = 0;
+            if (cartCustomerSelect) cartCustomerSelect.value = '';
+            if (customerInlineForm) customerInlineForm.classList.add('d-none');
+            setCustomerFromModel(null);
             currentAdvanceApplied = 0;
             currentNetPayable = 0;
-            if (data.customer_id && typeof existingCustomers !== 'undefined' && Array.isArray(existingCustomers)) {
+
+            if (data.customer && typeof existingCustomers !== 'undefined' && Array.isArray(existingCustomers)) {
+                const cIdx = existingCustomers.findIndex(c => c.id == data.customer.id);
+                if (cIdx !== -1) {
+                    existingCustomers[cIdx].advance_balance = data.customer.advance_balance;
+                    existingCustomers[cIdx].total_due = data.customer.total_due;
+                    if (data.customer.phone) existingCustomers[cIdx].phone = data.customer.phone;
+                    if (cartCustomerSelect) {
+                        const opt = cartCustomerSelect.querySelector(`option[value="${data.customer.id}"]`);
+                        if (opt) {
+                            opt.dataset.advance = data.customer.advance_balance;
+                            opt.dataset.due = data.customer.total_due;
+                            if (data.customer.phone) opt.dataset.phone = data.customer.phone;
+                            opt.textContent = data.customer.name + (data.customer.phone ? ` (${data.customer.phone})` : '');
+                        }
+                    }
+                } else if (data.customer.name && data.customer.name.toLowerCase() !== 'walk-in customer') {
+                    existingCustomers.push(data.customer);
+                    if (cartCustomerSelect) {
+                        let optGroup = document.getElementById('customerOptGroup');
+                        if (!optGroup) {
+                            optGroup = document.createElement('optgroup');
+                            optGroup.id = 'customerOptGroup';
+                            optGroup.label = 'Registered Customers';
+                            cartCustomerSelect.appendChild(optGroup);
+                        }
+                        const opt = document.createElement('option');
+                        opt.value = data.customer.id;
+                        opt.dataset.name = data.customer.name;
+                        opt.dataset.phone = data.customer.phone || '';
+                        opt.dataset.advance = data.customer.advance_balance || 0;
+                        opt.dataset.due = data.customer.total_due || 0;
+                        opt.textContent = data.customer.name + (data.customer.phone ? ` (${data.customer.phone})` : '');
+                        optGroup.appendChild(opt);
+                    }
+                    const dl = document.getElementById('customersDatalist');
+                    if (dl) {
+                        const dOpt = document.createElement('option');
+                        dOpt.value = data.customer.name;
+                        dOpt.dataset.phone = data.customer.phone || '';
+                        dOpt.dataset.id = data.customer.id;
+                        dl.appendChild(dOpt);
+                    }
+                }
+            } else if (data.customer_id && typeof existingCustomers !== 'undefined' && Array.isArray(existingCustomers)) {
                 const cIdx = existingCustomers.findIndex(c => c.id == data.customer_id);
                 if (cIdx !== -1) {
                     existingCustomers[cIdx].advance_balance = data.customer_advance_balance;

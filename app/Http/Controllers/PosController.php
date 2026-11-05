@@ -66,6 +66,14 @@ class PosController extends Controller
             $customer = null;
             if (!empty($validated['customer_id'])) {
                 $customer = Customer::find($validated['customer_id']);
+                if ($customer) {
+                    if (!empty($validated['customer_phone']) && (empty($customer->phone) || $customer->phone !== $validated['customer_phone'])) {
+                        $customer->update(['phone' => $validated['customer_phone']]);
+                    }
+                    if (!empty($validated['customer_name']) && $customer->name === 'Walk-in Customer') {
+                        $customer->update(['name' => $validated['customer_name']]);
+                    }
+                }
             } elseif (!empty($validated['customer_phone'])) {
                 $customer = Customer::firstOrCreate(
                     ['phone' => $validated['customer_phone']],
@@ -75,10 +83,10 @@ class PosController extends Controller
                     $customer->update(['name' => $validated['customer_name']]);
                 }
             } elseif (!empty($validated['customer_name']) && $validated['customer_name'] !== 'Walk-in Customer') {
-                $customer = Customer::create([
-                    'name' => $validated['customer_name'],
-                    'phone' => null,
-                ]);
+                $customer = Customer::firstOrCreate(
+                    ['name' => $validated['customer_name']],
+                    ['phone' => null]
+                );
             }
 
             $subTotal = 0;
@@ -245,6 +253,13 @@ class PosController extends Controller
             'statement_url' => route('credit-sales.receipt', $sale->id),
             'customer_id' => $customer?->id,
             'customer_advance_balance' => $customer ? (float) $customer->fresh()->advance_balance : 0,
+            'customer' => $customer ? [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'total_due' => (float) $customer->total_due,
+                'advance_balance' => (float) $customer->fresh()->advance_balance,
+            ] : null,
         ]);
     }
 

@@ -399,4 +399,94 @@ class PurchaseAndSaleAdvanceDiscountTest extends TestCase
         $this->assertEquals(50.00, (float) $sale->discount);
         $this->assertEquals(550.00, (float) $sale->total);
     }
+
+    public function test_pos_customer_dropdown_and_auto_fill_phone_number_after_purchase(): void
+    {
+        // 1. Create a customer who previously purchased
+        $customerName = 'Returning Customer ' . uniqid();
+        $customerPhone = '0300' . rand(1000000, 9999999);
+        $customer = Customer::create([
+            'name' => $customerName,
+            'phone' => $customerPhone,
+            'advance_balance' => 250.00,
+        ]);
+
+        // 2. Load POS screen and ensure the customer is rendered in the customer dropdown (<select id="cartCustomerSelect">)
+        $posViewRes = $this->actingAs($this->user)->get(route('pos.index'));
+        $posViewRes->assertStatus(200);
+        $posViewRes->assertSee('id="cartCustomerSelect"', false);
+        $posViewRes->assertSee($customerName);
+        $posViewRes->assertSee($customerPhone);
+
+        // 3. Make a POS purchase using this existing customer_id
+        $product = Product::create([
+            'name' => 'Dropdown Test Product ' . uniqid(),
+            'code' => 'DTP-' . uniqid(),
+            'purchase_price' => 200.00,
+            'sale_price' => 300.00,
+            'stock' => 10,
+        ]);
+
+        $saleRes = $this->actingAs($this->user)->postJson(route('pos.store'), [
+            'customer_id' => $customer->id,
+            'customer_name' => $customerName,
+            'customer_phone' => $customerPhone,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 1,
+                    'price' => 300.00,
+                ],
+            ],
+            'paid_amount' => 50.00, // 300 total - 250 advance = 50 net payable
+        ]);
+
+        $saleRes->assertStatus(200);
+        $saleRes->assertJson([
+            'success' => true,
+            'customer_id' => $customer->id,
+            'customer' => [
+                'id' => $customer->id,
+                'name' => $customerName,
+                'phone' => $customerPhone,
+            ],
+        ]);
+
+        // 4. Test creating a sale with a brand new customer name & phone
+        $newCustomerName = 'New FirstTime Customer ' . uniqid();
+        $newCustomerPhone = '0311' . rand(1000000, 9999999);
+
+        $newSaleRes = $this->actingAs($this->user)->postJson(route('pos.store'), [
+            'customer_name' => $newCustomerName,
+            'customer_phone' => $newCustomerPhone,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'quantity' => 1,
+                    'price' => 300.00,
+                ],
+            ],
+            'paid_amount' => 300.00,
+        ]);
+
+        $newSaleRes->assertStatus(200);
+        $newSaleRes->assertJson([
+            'success' => true,
+            'customer' => [
+                'name' => $newCustomerName,
+                'phone' => $newCustomerPhone,
+            ],
+        ]);
+
+        // Assert customer record is now in database
+        $createdCustomer = Customer::where('phone', $newCustomerPhone)->first();
+        $this->assertNotNull($createdCustomer);
+        $this->assertEquals($newCustomerName, $createdCustomer->name);
+
+        // When POS page loads again, the new customer is now present in the dropdown!
+        $posViewRes2 = $this->actingAs($this->user)->get(route('pos.index'));
+        $posViewRes2->assertStatus(200);
+        $posViewRes2->assertSee($newCustomerName);
+        $posViewRes2->assertSee($newCustomerPhone);
+    }
 }
