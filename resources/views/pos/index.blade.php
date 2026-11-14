@@ -239,6 +239,138 @@
         border-bottom: 1px solid #edf1f6;
         padding: 10px 18px;
     }
+
+    /* ---- Custom Customer Dropdown ---- */
+    .cust-picker-wrap {
+        position: relative;
+    }
+    .cust-picker-trigger {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: #fff;
+        border: 1.5px solid #d9e2ef;
+        border-radius: 9px;
+        padding: 6px 10px;
+        cursor: pointer;
+        transition: border-color .15s;
+        min-height: 36px;
+        user-select: none;
+    }
+    .cust-picker-trigger:hover,
+    .cust-picker-trigger.open { border-color: var(--pos-primary); }
+    .cust-picker-trigger .cust-avatar {
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff6e40 0%, #f25b2a 100%);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 11px;
+        flex-shrink: 0;
+        letter-spacing: 0;
+    }
+    .cust-picker-trigger .cust-avatar.walkin {
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    }
+    .cust-picker-trigger .cust-info { flex: 1; min-width: 0; }
+    .cust-picker-trigger .cust-name {
+        font-size: 0.82rem; font-weight: 600; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cust-picker-trigger .cust-phone {
+        font-size: 0.72rem; color: #64748b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cust-picker-trigger .cust-chevron {
+        font-size: 0.75rem; color: #94a3b8; flex-shrink: 0;
+        transition: transform .2s;
+    }
+    .cust-picker-trigger.open .cust-chevron { transform: rotate(180deg); }
+
+    .cust-picker-panel {
+        display: none;
+        position: absolute;
+        left: 0; right: 0;
+        top: calc(100% + 4px);
+        z-index: 1050;
+        background: #fff;
+        border: 1.5px solid #d9e2ef;
+        border-radius: 11px;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.13);
+        overflow: hidden;
+    }
+    .cust-picker-panel.show { display: block; }
+
+    .cust-search-wrap {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        background: #f8fafc;
+        display: flex; align-items: center; gap: 7px;
+    }
+    .cust-search-wrap i { color: #94a3b8; font-size: 0.85rem; flex-shrink: 0; }
+    .cust-search-input {
+        border: none; background: transparent; outline: none;
+        font-size: 0.82rem; flex: 1; color: #1e293b;
+    }
+    .cust-search-input::placeholder { color: #94a3b8; }
+    .cust-search-wrap .cust-clear-search {
+        background: none; border: none; padding: 0;
+        color: #94a3b8; font-size: 0.8rem; cursor: pointer; display: none;
+    }
+
+    .cust-list {
+        max-height: 220px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+    .cust-list::-webkit-scrollbar { width: 5px; }
+    .cust-list::-webkit-scrollbar-thumb { background: #dfe5ed; border-radius: 3px; }
+
+    .cust-list-item {
+        display: flex; align-items: center; gap: 9px;
+        padding: 7px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f8fafc;
+        transition: background .1s;
+    }
+    .cust-list-item:last-child { border-bottom: none; }
+    .cust-list-item:hover, .cust-list-item.highlighted { background: #fff4f1; }
+    .cust-list-item.selected { background: #fff4f1; }
+    .cust-list-item .item-avatar {
+        width: 28px; height: 28px; border-radius: 50%;
+        background: linear-gradient(135deg, #ff6e40 0%, #f25b2a 100%);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 11px; flex-shrink: 0;
+    }
+    .cust-list-item .item-avatar.walkin {
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    }
+    .cust-list-item .item-avatar.add-new {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        font-size: 15px;
+    }
+    .cust-list-item .item-body { flex: 1; min-width: 0; }
+    .cust-list-item .item-name {
+        font-size: 0.82rem; font-weight: 600; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cust-list-item .item-name .highlight { background: #ffd5c8; border-radius: 2px; padding: 0 1px; }
+    .cust-list-item .item-phone {
+        font-size: 0.71rem; color: #64748b;
+    }
+    .cust-list-item .item-badges { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .cust-list-item .adv-badge {
+        font-size: 0.65rem; padding: 1px 5px; border-radius: 4px;
+        background: #dcfce7; color: #16a34a; font-weight: 600;
+    }
+    .cust-list-item .due-badge {
+        font-size: 0.65rem; padding: 1px 5px; border-radius: 4px;
+        background: #fee2e2; color: #dc2626; font-weight: 600;
+    }
+    .cust-list-item.add-new-item .item-name { color: #2563eb; }
+    .cust-no-results {
+        padding: 16px 12px; text-align: center;
+        font-size: 0.8rem; color: #94a3b8;
+    }
     .cart-items-scroll {
         flex: 1;
         overflow-y: auto;
@@ -692,58 +824,74 @@
 
             <!-- Customer Quick Bar -->
             <div class="cart-customer-bar">
-                <div class="d-flex align-items-center justify-content-between mb-1">
+                <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="small fw-semibold text-secondary">
-                        <i class="bi bi-person me-1"></i> Customer Info
+                        <i class="bi bi-person-circle me-1"></i> Customer
                     </span>
-                    <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-primary" id="btnCustomerToggle" title="Add new customer">
-                        <i class="bi bi-person-plus me-1"></i>+ New
-                    </button>
-                </div>
-
-                <!-- Customer Dropdown Selector -->
-                <div class="mb-1">
-                    <select id="cartCustomerSelect" class="form-select form-select-sm fw-semibold" style="border-radius: 8px;">
-                        <option value="" data-name="Walk-in Customer" data-phone="" data-advance="0" data-due="0">Walk-in Customer</option>
-                        <option value="__new__" class="fw-bold text-primary">+ Add New Customer...</option>
-                        @php
-                            $validCustomers = $customers->filter(fn($c) => strtolower(trim($c->name)) !== 'walk-in customer');
-                        @endphp
-                        @if($validCustomers->count() > 0)
-                            <optgroup label="Registered Customers ({{ $validCustomers->count() }})" id="customerOptGroup">
-                                @foreach($validCustomers as $c)
-                                    <option value="{{ $c->id }}"
-                                            data-name="{{ $c->name }}"
-                                            data-phone="{{ $c->phone ?? '' }}"
-                                            data-advance="{{ (float)$c->advance_balance }}"
-                                            data-due="{{ (float)$c->total_due }}">
-                                        {{ $c->name }} {{ $c->phone ? '('.$c->phone.')' : '' }}
-                                    </option>
-                                @endforeach
-                            </optgroup>
-                        @endif
-                    </select>
-                </div>
-
-                <!-- Selected Customer Phone & Balance Display Row -->
-                <div class="d-flex align-items-center justify-content-between small text-muted">
-                    <div class="text-truncate me-2">
-                        <i class="bi bi-telephone text-secondary me-1" style="font-size: 0.75rem;"></i>
-                        <span id="displayCustomerPhone" class="fw-semibold text-dark">—</span>
-                    </div>
-                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                        <span id="cartCustomerAdvanceBadge" class="badge bg-success-subtle text-success border border-success-subtle d-none" style="font-size: 0.72rem;"></span>
-                        <span id="cartCustomerDueBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle d-none" style="font-size: 0.72rem;"></span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="cartCustomerAdvanceBadge" class="badge bg-success-subtle text-success border border-success-subtle d-none" style="font-size:0.68rem;"></span>
+                        <span id="cartCustomerDueBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle d-none" style="font-size:0.68rem;"></span>
                     </div>
                 </div>
 
+                {{-- Hidden native select kept for JS compatibility --}}
+                <select id="cartCustomerSelect" class="d-none">
+                    <option value="" data-name="Walk-in Customer" data-phone="" data-advance="0" data-due="0">Walk-in Customer</option>
+                    <option value="__new__">__new__</option>
+                    @php
+                        $validCustomers = $customers->filter(fn($c) => strtolower(trim($c->name)) !== 'walk-in customer');
+                    @endphp
+                    @foreach($validCustomers as $c)
+                        <option value="{{ $c->id }}"
+                                data-name="{{ $c->name }}"
+                                data-phone="{{ $c->phone ?? '' }}"
+                                data-advance="{{ (float)$c->advance_balance }}"
+                                data-due="{{ (float)$c->total_due }}">
+                            {{ $c->name }}
+                        </option>
+                    @endforeach
+                </select>
+
+                {{-- Custom Searchable Picker --}}
+                <div class="cust-picker-wrap" id="custPickerWrap">
+                    {{-- Trigger button --}}
+                    <div class="cust-picker-trigger" id="custPickerTrigger" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+                        <div class="cust-avatar walkin" id="custTriggerAvatar">W</div>
+                        <div class="cust-info">
+                            <div class="cust-name" id="custTriggerName">Walk-in Customer</div>
+                            <div class="cust-phone" id="custTriggerPhone">No phone</div>
+                        </div>
+                        <i class="bi bi-chevron-down cust-chevron"></i>
+                    </div>
+
+                    {{-- Dropdown panel --}}
+                    <div class="cust-picker-panel" id="custPickerPanel" role="listbox">
+                        {{-- Search bar --}}
+                        <div class="cust-search-wrap">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="cust-search-input" id="custSearchInput"
+                                   placeholder="Search by name or phone..." autocomplete="off">
+                            <button class="cust-clear-search" id="custClearSearch" type="button" title="Clear">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>
+
+                        {{-- List --}}
+                        <div class="cust-list" id="custList" role="listbox">
+                            {{-- Populated by JS --}}
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Hidden display helpers used by JS --}}
                 <span id="displayCustomerName" class="d-none">Walk-in Customer</span>
+                <span id="displayCustomerPhone" class="d-none">—</span>
 
-                <!-- Quick Inline Customer Inputs (Hidden by default, shown for New Customer) -->
+                {{-- New Customer inline form --}}
                 <div id="customerInlineForm" class="mt-2 p-2 bg-light rounded-2 border d-none">
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <span class="small fw-bold text-dark"><i class="bi bi-person-plus text-primary me-1"></i>New Customer</span>
-                        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none" id="btnCancelNewCustomer" title="Cancel">&times; Cancel</button>
+                        <button type="button" class="btn btn-sm btn-link text-muted p-0 text-decoration-none" id="btnCancelNewCustomer">&times; Cancel</button>
                     </div>
                     <input type="text" id="cartCustomerName" list="customersDatalist" class="form-control form-control-sm mb-1" placeholder="Customer Name *">
                     <input type="text" id="cartCustomerPhone" class="form-control form-control-sm" placeholder="Phone (e.g. 0300-1234567)">
@@ -1485,19 +1633,28 @@
         }
     });
 
-    // -------------------------------------------------------------
-    // Customer Selection & Toggle
-    // -------------------------------------------------------------
-    const btnCustomerToggle    = document.getElementById('btnCustomerToggle');
-    const btnCancelNewCustomer = document.getElementById('btnCancelNewCustomer');
-    const customerInlineForm   = document.getElementById('customerInlineForm');
+    // ================================================================
+    // CUSTOM CUSTOMER PICKER  (searchable dropdown)
+    // ================================================================
     const cartCustomerSelect   = document.getElementById('cartCustomerSelect');
     const cartCustomerName     = document.getElementById('cartCustomerName');
     const cartCustomerPhone    = document.getElementById('cartCustomerPhone');
-    const displayCustomerPhone = document.getElementById('displayCustomerPhone');
+    const customerInlineForm   = document.getElementById('customerInlineForm');
     const displayCustomerName  = document.getElementById('displayCustomerName');
+    const displayCustomerPhone = document.getElementById('displayCustomerPhone');
     const cartCustomerAdvBadge = document.getElementById('cartCustomerAdvanceBadge');
     const cartCustomerDueBadge = document.getElementById('cartCustomerDueBadge');
+
+    // Picker elements
+    const custPickerTrigger  = document.getElementById('custPickerTrigger');
+    const custPickerPanel    = document.getElementById('custPickerPanel');
+    const custSearchInput    = document.getElementById('custSearchInput');
+    const custClearSearch    = document.getElementById('custClearSearch');
+    const custList           = document.getElementById('custList');
+    const custTriggerAvatar  = document.getElementById('custTriggerAvatar');
+    const custTriggerName    = document.getElementById('custTriggerName');
+    const custTriggerPhone   = document.getElementById('custTriggerPhone');
+    const btnCancelNewCustomer = document.getElementById('btnCancelNewCustomer');
 
     let currentSaleType = 'cash';
     let matchedCustomerId = null;
@@ -1505,6 +1662,271 @@
     let currentAdvanceApplied = 0;
     let currentNetPayable = 0;
     const existingCustomers = @json($customers);
+
+    // Helper: initials from name
+    function getInitials(name) {
+        if (!name || name.toLowerCase() === 'walk-in customer') return 'W';
+        const parts = name.trim().split(' ');
+        return parts.length >= 2
+            ? (parts[0][0] + parts[1][0]).toUpperCase()
+            : parts[0][0].toUpperCase();
+    }
+
+    // Helper: highlight matching text
+    function highlightText(text, query) {
+        if (!query) return escapeHtml(text);
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return escapeHtml(text);
+        return escapeHtml(text.substring(0, idx))
+            + '<span class="highlight">' + escapeHtml(text.substring(idx, idx + query.length)) + '</span>'
+            + escapeHtml(text.substring(idx + query.length));
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Build list items
+    function buildCustList(query) {
+        query = (query || '').trim();
+        const q = query.toLowerCase();
+
+        let filtered = existingCustomers.filter(c => {
+            if (!c.name || c.name.toLowerCase() === 'walk-in customer') return false;
+            if (!q) return true;
+            return c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q));
+        });
+
+        custList.innerHTML = '';
+
+        // Walk-in Customer (always first, only when no search query)
+        if (!q) {
+            const walkEl = buildListItem({
+                id: '', name: 'Walk-in Customer', phone: '', advance: 0, due: 0
+            }, '', true);
+            custList.appendChild(walkEl);
+        }
+
+        // Registered customers
+        if (filtered.length > 0) {
+            filtered.forEach(c => {
+                custList.appendChild(buildListItem(c, query, false));
+            });
+        } else if (q) {
+            const noRes = document.createElement('div');
+            noRes.className = 'cust-no-results';
+            noRes.innerHTML = `<i class="bi bi-search me-1"></i>No customer found for "<b>${escapeHtml(query)}</b>"`;
+            custList.appendChild(noRes);
+        }
+
+        // Add New Customer - always at bottom
+        const addEl = document.createElement('div');
+        addEl.className = 'cust-list-item add-new-item';
+        addEl.dataset.action = 'new';
+        addEl.innerHTML = `
+            <div class="item-avatar add-new"><i class="bi bi-plus-lg"></i></div>
+            <div class="item-body">
+                <div class="item-name"><i class="bi bi-person-plus me-1"></i>Add New Customer</div>
+                <div class="item-phone">Register a new customer</div>
+            </div>`;
+        addEl.addEventListener('click', openNewCustomerForm);
+        custList.appendChild(addEl);
+    }
+
+    function buildListItem(c, query, isWalkin) {
+        const el = document.createElement('div');
+        el.className = 'cust-list-item' + (isWalkin ? '' : '');
+        el.dataset.id = c.id || '';
+
+        const advance = parseFloat(c.advance_balance) || 0;
+        const due = parseFloat(c.total_due) || 0;
+        const avatarClass = isWalkin ? 'item-avatar walkin' : 'item-avatar';
+        const initials = isWalkin ? 'W' : getInitials(c.name);
+        const phoneTxt = c.phone ? c.phone : '<span class="text-muted" style="font-style:italic;">No phone</span>';
+        const nameHtml = query ? highlightText(c.name, query) : escapeHtml(c.name);
+        const phoneHtml = (query && c.phone) ? highlightText(c.phone, query) : (c.phone ? escapeHtml(c.phone) : '<span style="font-style:italic;color:#94a3b8;">No phone</span>');
+
+        let badges = '';
+        if (advance > 0) badges += `<span class="adv-badge">Adv ${advance.toLocaleString()}</span>`;
+        if (due > 0) badges += `<span class="due-badge">Due ${due.toLocaleString()}</span>`;
+
+        el.innerHTML = `
+            <div class="${avatarClass}">${escapeHtml(initials)}</div>
+            <div class="item-body">
+                <div class="item-name">${nameHtml}</div>
+                <div class="item-phone"><i class="bi bi-telephone" style="font-size:0.68rem;"></i> ${phoneHtml}</div>
+            </div>
+            ${badges ? `<div class="item-badges">${badges}</div>` : ''}`;
+
+        el.addEventListener('click', () => {
+            if (isWalkin) {
+                selectCustPicker(null);
+            } else {
+                selectCustPicker(c);
+            }
+            closePicker();
+        });
+
+        return el;
+    }
+
+    function openPicker() {
+        custPickerPanel.classList.add('show');
+        custPickerTrigger.classList.add('open');
+        custPickerTrigger.setAttribute('aria-expanded', 'true');
+        buildCustList('');
+        custSearchInput.value = '';
+        custClearSearch.style.display = 'none';
+        setTimeout(() => custSearchInput.focus(), 50);
+    }
+
+    function closePicker() {
+        custPickerPanel.classList.remove('show');
+        custPickerTrigger.classList.remove('open');
+        custPickerTrigger.setAttribute('aria-expanded', 'false');
+    }
+
+    // Toggle picker on trigger click
+    custPickerTrigger.addEventListener('click', function(e) {
+        if (custPickerPanel.classList.contains('show')) {
+            closePicker();
+        } else {
+            openPicker();
+        }
+    });
+
+    // Keyboard accessibility on trigger
+    custPickerTrigger.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+        if (e.key === 'Escape') closePicker();
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+        if (!document.getElementById('custPickerWrap').contains(e.target)) {
+            closePicker();
+        }
+    });
+
+    // Live search
+    custSearchInput.addEventListener('input', function() {
+        const q = this.value;
+        custClearSearch.style.display = q ? 'block' : 'none';
+        buildCustList(q);
+    });
+
+    custClearSearch.addEventListener('click', function() {
+        custSearchInput.value = '';
+        this.style.display = 'none';
+        buildCustList('');
+        custSearchInput.focus();
+    });
+
+    // Keyboard nav inside list
+    custSearchInput.addEventListener('keydown', function(e) {
+        const items = custList.querySelectorAll('.cust-list-item');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (items.length) items[0].focus();
+        } else if (e.key === 'Escape') {
+            closePicker();
+            custPickerTrigger.focus();
+        }
+    });
+
+    // Update trigger display
+    function updateTriggerDisplay(c) {
+        if (!c || !c.id) {
+            custTriggerAvatar.className = 'cust-avatar walkin';
+            custTriggerAvatar.textContent = 'W';
+            custTriggerName.textContent = 'Walk-in Customer';
+            custTriggerPhone.textContent = 'No phone registered';
+        } else {
+            const initials = getInitials(c.name);
+            custTriggerAvatar.className = 'cust-avatar';
+            custTriggerAvatar.textContent = initials;
+            custTriggerName.textContent = c.name;
+            custTriggerPhone.textContent = c.phone || 'No phone';
+        }
+    }
+
+    // Select a customer via picker
+    function selectCustPicker(c) {
+        if (c) {
+            setCustomerFromModel(c);
+            if (cartCustomerSelect) cartCustomerSelect.value = c.id;
+        } else {
+            setCustomerFromModel(null);
+            if (cartCustomerSelect) cartCustomerSelect.value = '';
+        }
+        updateTriggerDisplay(c || null);
+    }
+
+    // Open new customer form
+    function openNewCustomerForm() {
+        closePicker();
+        if (customerInlineForm) {
+            customerInlineForm.classList.remove('d-none');
+            if (cartCustomerName) { cartCustomerName.value = ''; cartCustomerName.focus(); }
+            if (cartCustomerPhone) cartCustomerPhone.value = '';
+        }
+        matchedCustomerId = null;
+        matchedCustomerAdvance = 0;
+        if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+        if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+        const mName = document.getElementById('modalCustomerName');
+        const mPhone = document.getElementById('modalCustomerPhone');
+        if (mName) mName.value = '';
+        if (mPhone) mPhone.value = '';
+        onCustomerInput();
+    }
+
+    if (btnCancelNewCustomer) {
+        btnCancelNewCustomer.addEventListener('click', function() {
+            customerInlineForm.classList.add('d-none');
+            selectCustPicker(null);
+        });
+    }
+
+    if (cartCustomerName) {
+        cartCustomerName.addEventListener('input', function () {
+            const val = this.value.trim();
+            if (displayCustomerName) displayCustomerName.innerText = val || 'Walk-in Customer';
+            const mName = document.getElementById('modalCustomerName');
+            if (mName) mName.value = val;
+
+            if (val) {
+                const match = existingCustomers.find(c => c.name.toLowerCase() === val.toLowerCase());
+                if (match) {
+                    setCustomerFromModel(match);
+                    updateTriggerDisplay(match);
+                    return;
+                }
+            }
+            matchedCustomerId = null;
+            matchedCustomerAdvance = 0;
+            if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
+            if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+            onCustomerInput();
+        });
+    }
+
+    if (cartCustomerPhone) {
+        cartCustomerPhone.addEventListener('input', function () {
+            const val = this.value.trim();
+            if (displayCustomerPhone) displayCustomerPhone.innerText = val || '—';
+            const mPhone = document.getElementById('modalCustomerPhone');
+            if (mPhone) mPhone.value = val;
+
+            if (val && !matchedCustomerId) {
+                const match = existingCustomers.find(c => c.phone && c.phone.trim() === val);
+                if (match) {
+                    setCustomerFromModel(match);
+                    updateTriggerDisplay(match);
+                }
+            }
+        });
+    }
 
     function setCustomerFromModel(c) {
         if (!c || !c.id) {
@@ -1520,6 +1942,7 @@
             if (mPhone) mPhone.value = '';
             if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
             if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
+            updateTriggerDisplay(null);
             onCustomerInput();
             return;
         }
@@ -1537,7 +1960,6 @@
         if (mName) mName.value = c.name;
         if (mPhone) mPhone.value = c.phone || '';
 
-        // Badges in sidebar
         if (cartCustomerAdvBadge) {
             if (matchedCustomerAdvance > 0) {
                 cartCustomerAdvBadge.innerText = 'Adv: Rs. ' + matchedCustomerAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1546,7 +1968,6 @@
                 cartCustomerAdvBadge.classList.add('d-none');
             }
         }
-
         if (cartCustomerDueBadge) {
             if (due > 0) {
                 cartCustomerDueBadge.innerText = 'Due: Rs. ' + due.toLocaleString();
@@ -1556,111 +1977,15 @@
             }
         }
 
+        updateTriggerDisplay(c);
         onCustomerInput();
     }
 
-    if (cartCustomerSelect) {
-        cartCustomerSelect.addEventListener('change', function () {
-            const val = this.value;
-            if (val === '__new__') {
-                if (customerInlineForm) customerInlineForm.classList.remove('d-none');
-                if (cartCustomerName) {
-                    cartCustomerName.value = '';
-                    cartCustomerName.focus();
-                }
-                if (cartCustomerPhone) cartCustomerPhone.value = '';
-                if (displayCustomerPhone) displayCustomerPhone.innerText = '—';
-                if (displayCustomerName) displayCustomerName.innerText = 'Walk-in Customer';
-                matchedCustomerId = null;
-                matchedCustomerAdvance = 0;
-                if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
-                if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
-                const mName = document.getElementById('modalCustomerName');
-                const mPhone = document.getElementById('modalCustomerPhone');
-                if (mName) mName.value = '';
-                if (mPhone) mPhone.value = '';
-                onCustomerInput();
-            } else if (val === '') {
-                if (customerInlineForm) customerInlineForm.classList.add('d-none');
-                setCustomerFromModel(null);
-            } else {
-                if (customerInlineForm) customerInlineForm.classList.add('d-none');
-                const cust = existingCustomers.find(c => c.id == val);
-                if (cust) {
-                    setCustomerFromModel(cust);
-                }
-            }
-        });
-    }
-
+    // Legacy toggle button (kept as "Add New" shortcut)
+    const btnCustomerToggle = document.getElementById('btnCustomerToggle');
     if (btnCustomerToggle) {
-        btnCustomerToggle.addEventListener('click', function () {
-            if (!customerInlineForm) return;
-            customerInlineForm.classList.toggle('d-none');
-            if (!customerInlineForm.classList.contains('d-none')) {
-                if (cartCustomerSelect) cartCustomerSelect.value = '__new__';
-                if (cartCustomerName) {
-                    cartCustomerName.value = '';
-                    cartCustomerName.focus();
-                }
-                if (cartCustomerPhone) cartCustomerPhone.value = '';
-                matchedCustomerId = null;
-                matchedCustomerAdvance = 0;
-                if (displayCustomerPhone) displayCustomerPhone.innerText = '—';
-                if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
-                if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
-            } else {
-                if (cartCustomerSelect) cartCustomerSelect.value = '';
-                setCustomerFromModel(null);
-            }
-        });
+        btnCustomerToggle.addEventListener('click', openNewCustomerForm);
     }
-
-    if (btnCancelNewCustomer) {
-        btnCancelNewCustomer.addEventListener('click', function () {
-            if (customerInlineForm) customerInlineForm.classList.add('d-none');
-            if (cartCustomerSelect) cartCustomerSelect.value = '';
-            setCustomerFromModel(null);
-        });
-    }
-
-    if (cartCustomerName) {
-        cartCustomerName.addEventListener('input', function () {
-            const val = this.value.trim();
-            if (displayCustomerName) displayCustomerName.innerText = val || 'Walk-in Customer';
-            const mName = document.getElementById('modalCustomerName');
-            if (mName) mName.value = val;
-
-            if (val) {
-                const match = existingCustomers.find(c => c.name.toLowerCase() === val.toLowerCase());
-                if (match) {
-                    if (cartCustomerSelect) cartCustomerSelect.value = match.id;
-                    setCustomerFromModel(match);
-                    return;
-                }
-            }
-            matchedCustomerId = null;
-            matchedCustomerAdvance = 0;
-            if (cartCustomerAdvBadge) cartCustomerAdvBadge.classList.add('d-none');
-            if (cartCustomerDueBadge) cartCustomerDueBadge.classList.add('d-none');
-            onCustomerInput();
-        });
-    }
-
-    cartCustomerPhone.addEventListener('input', function () {
-        const val = this.value.trim();
-        if (displayCustomerPhone) displayCustomerPhone.innerText = val || '—';
-        const mPhone = document.getElementById('modalCustomerPhone');
-        if (mPhone) mPhone.value = val;
-
-        if (val && !matchedCustomerId) {
-            const match = existingCustomers.find(c => c.phone && c.phone.trim() === val);
-            if (match) {
-                if (cartCustomerSelect) cartCustomerSelect.value = match.id;
-                setCustomerFromModel(match);
-            }
-        }
-    });
 
     function updateCheckoutTotals() {
         let total = 0;
@@ -2034,7 +2359,7 @@
                 window.open(data.invoice_url, '_blank');
             }
 
-            // Reset cart and customer selection
+            // Reset cart and customer picker
             cart = [];
             const discInputEl = document.getElementById('discountInput');
             if (discInputEl) discInputEl.value = 0;
@@ -2050,41 +2375,28 @@
                     existingCustomers[cIdx].advance_balance = data.customer.advance_balance;
                     existingCustomers[cIdx].total_due = data.customer.total_due;
                     if (data.customer.phone) existingCustomers[cIdx].phone = data.customer.phone;
+                    // Update hidden select option
                     if (cartCustomerSelect) {
                         const opt = cartCustomerSelect.querySelector(`option[value="${data.customer.id}"]`);
                         if (opt) {
                             opt.dataset.advance = data.customer.advance_balance;
                             opt.dataset.due = data.customer.total_due;
                             if (data.customer.phone) opt.dataset.phone = data.customer.phone;
-                            opt.textContent = data.customer.name + (data.customer.phone ? ` (${data.customer.phone})` : '');
                         }
                     }
                 } else if (data.customer.name && data.customer.name.toLowerCase() !== 'walk-in customer') {
+                    // Brand new customer — add to in-memory array so picker can find them
                     existingCustomers.push(data.customer);
+                    // Add to hidden select for compatibility
                     if (cartCustomerSelect) {
-                        let optGroup = document.getElementById('customerOptGroup');
-                        if (!optGroup) {
-                            optGroup = document.createElement('optgroup');
-                            optGroup.id = 'customerOptGroup';
-                            optGroup.label = 'Registered Customers';
-                            cartCustomerSelect.appendChild(optGroup);
-                        }
                         const opt = document.createElement('option');
                         opt.value = data.customer.id;
                         opt.dataset.name = data.customer.name;
                         opt.dataset.phone = data.customer.phone || '';
                         opt.dataset.advance = data.customer.advance_balance || 0;
                         opt.dataset.due = data.customer.total_due || 0;
-                        opt.textContent = data.customer.name + (data.customer.phone ? ` (${data.customer.phone})` : '');
-                        optGroup.appendChild(opt);
-                    }
-                    const dl = document.getElementById('customersDatalist');
-                    if (dl) {
-                        const dOpt = document.createElement('option');
-                        dOpt.value = data.customer.name;
-                        dOpt.dataset.phone = data.customer.phone || '';
-                        dOpt.dataset.id = data.customer.id;
-                        dl.appendChild(dOpt);
+                        opt.textContent = data.customer.name;
+                        cartCustomerSelect.appendChild(opt);
                     }
                 }
             } else if (data.customer_id && typeof existingCustomers !== 'undefined' && Array.isArray(existingCustomers)) {

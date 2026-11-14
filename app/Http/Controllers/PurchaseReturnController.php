@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\PurchasePayment;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
+use App\Models\SupplierAdvance;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -203,11 +205,69 @@ class PurchaseReturnController extends Controller
 
             // Adjust Purchase Total & Status
             $newTotal = max(0, (float) $purchase->total - $totalReturnAmount);
-            $newStatus = ($purchase->paid_amount >= $newTotal) ? 'paid' : ($purchase->paid_amount > 0 ? 'partial' : 'due');
-            $purchase->update([
-                'total' => $newTotal,
-                'payment_status' => $newStatus,
-            ]);
+            $excessCredit = (float) $purchase->paid_amount - $newTotal;
+
+            if ($excessCredit > 0) {
+                // The purchase was already paid for more than its revised total.
+                // Re-balance this purchase to its new total
+                $purchase->update([
+                    'total' => $newTotal,
+                    'paid_amount' => $newTotal,
+                    'payment_status' => 'paid',
+                ]);
+
+                // Reallocate the excess credit to other pending purchases of the same supplier (oldest first)
+                $supplierName = $purchase->supplier_name ?: 'General Supplier';
+                $pendingPurchases = Purchase::where('supplier_name', $supplierName)
+                    ->where('id', '!=', $purchase->id)
+                    ->whereIn('payment_status', ['partial', 'due'])
+                    ->whereRaw('paid_amount < total')
+                    ->orderBy('purchase_date', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                $remainingCredit = $excessCredit;
+
+                foreach ($pendingPurchases as $pending) {
+                    if ($remainingCredit <= 0) break;
+
+                    $due = (float) $pending->due_amount;
+                    $toApply = min($remainingCredit, $due);
+                    $remainingCredit = round($remainingCredit - $toApply, 2);
+
+                    PurchasePayment::create([
+                        'purchase_id'    => $pending->id,
+                        'amount'         => $toApply,
+                        'payment_date'   => $returnDate,
+                        'payment_method' => 'return_credit',
+                        'note'           => "Adjusted from Purchase Return {$purchaseReturn->return_no} ({$purchase->reference_no})",
+                        'user_id'        => auth()->id(),
+                    ]);
+
+                    $newPendingPaid = min((float) $pending->total, (float) $pending->paid_amount + $toApply);
+                    $newPendingStatus = $newPendingPaid >= (float) $pending->total ? 'paid' : 'partial';
+
+                    $pending->update([
+                        'paid_amount'    => $newPendingPaid,
+                        'payment_status' => $newPendingStatus,
+                    ]);
+                }
+
+                // Any leftover credit goes to SupplierAdvance
+                if ($remainingCredit > 0) {
+                    $advance = SupplierAdvance::firstOrCreate(
+                        ['supplier_name' => $supplierName],
+                        ['advance_balance' => 0]
+                    );
+                    $advance->increment('advance_balance', $remainingCredit);
+                }
+            } else {
+                $newStatus = ($purchase->paid_amount >= $newTotal) ? 'paid' : ($purchase->paid_amount > 0 ? 'partial' : 'due');
+                $purchase->update([
+                    'total' => $newTotal,
+                    'payment_status' => $newStatus,
+                ]);
+            }
 
             return $purchaseReturn;
         });
@@ -437,6 +497,35 @@ class PurchaseReturnController extends Controller
             // Re-increment stock since return to supplier is cancelled/deleted
             foreach ($purchaseReturn->items as $item) {
                 Product::where('id', $item->product_id)->increment('stock', $item->quantity);
+            }
+
+            // Restore the original purchase total
+            $purchase = $purchaseReturn->purchase;
+            if ($purchase) {
+                $restoredTotal = (float) $purchase->total + (float) $purchaseReturn->total_amount;
+                $restoredStatus = ($purchase->paid_amount >= $restoredTotal) ? 'paid' : ($purchase->paid_amount > 0 ? 'partial' : 'due');
+                $purchase->update([
+                    'total' => $restoredTotal,
+                    'payment_status' => $restoredStatus,
+                ]);
+            }
+
+            // Revert any return_credit payments created by this return
+            $reallocatedPayments = PurchasePayment::where('payment_method', 'return_credit')
+                ->where('note', 'like', "%{$purchaseReturn->return_no}%")
+                ->get();
+
+            foreach ($reallocatedPayments as $rp) {
+                $affectedPurchase = $rp->purchase;
+                if ($affectedPurchase) {
+                    $newPaid = max(0, (float) $affectedPurchase->paid_amount - (float) $rp->amount);
+                    $newStatus = ($newPaid >= (float) $affectedPurchase->total) ? 'paid' : ($newPaid > 0 ? 'partial' : 'due');
+                    $affectedPurchase->update([
+                        'paid_amount' => $newPaid,
+                        'payment_status' => $newStatus,
+                    ]);
+                }
+                $rp->delete();
             }
 
             $purchaseReturn->items()->delete();

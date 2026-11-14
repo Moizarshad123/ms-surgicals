@@ -43,28 +43,37 @@
 
     {{-- KPI Summary --}}
     <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-sm-6">
+        <div class="col-xl col-md-4 col-sm-6">
             <div class="detail-kpi border-start border-4 border-primary">
                 <div class="text-muted small fw-semibold text-uppercase">Total Billed</div>
                 <div class="fs-4 fw-bold text-dark mt-1">Rs. {{ number_format($totalBilled, 2) }}</div>
                 <div class="small text-muted">Across {{ $totalInvoices }} invoices</div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6">
+        @if(($totalReturns ?? 0) > 0)
+        <div class="col-xl col-md-4 col-sm-6">
+            <div class="detail-kpi border-start border-4 border-warning">
+                <div class="text-muted small fw-semibold text-uppercase">Total Returns</div>
+                <div class="fs-4 fw-bold text-warning mt-1">Rs. {{ number_format($totalReturns, 2) }}</div>
+                <div class="small text-muted">{{ $returns->count() }} debit notes</div>
+            </div>
+        </div>
+        @endif
+        <div class="col-xl col-md-4 col-sm-6">
             <div class="detail-kpi border-start border-4 border-success">
                 <div class="text-muted small fw-semibold text-uppercase">Total Paid</div>
                 <div class="fs-4 fw-bold text-success mt-1">Rs. {{ number_format($totalPaid, 2) }}</div>
                 <div class="small text-muted">{{ $paidInvoices }} invoices cleared</div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6">
+        <div class="col-xl col-md-4 col-sm-6">
             <div class="detail-kpi border-start border-4 border-danger">
                 <div class="text-muted small fw-semibold text-uppercase">Balance Due</div>
                 <div class="fs-4 fw-bold text-danger mt-1">Rs. {{ number_format($balanceDue, 2) }}</div>
                 <div class="small text-muted">{{ $pendingInvoices }} invoices pending</div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6">
+        <div class="col-xl col-md-4 col-sm-6">
             @if($advanceBalance > 0)
                 <div class="advance-highlight h-100">
                     <div class="text-success small fw-bold text-uppercase"><i class="bi bi-wallet-fill me-1"></i>Advance Balance</div>
@@ -113,6 +122,13 @@
                                     <span class="fw-bold font-monospace text-dark">
                                         <i class="bi bi-file-earmark-text text-primary me-1"></i>{{ $purchase->reference_no }}
                                     </span>
+                                    @if($purchase->returns && $purchase->returns->count() > 0)
+                                        <div class="mt-1">
+                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning" style="font-size:0.7rem;">
+                                                <i class="bi bi-arrow-return-left"></i> Returned: Rs. {{ number_format($purchase->returns->sum('total_amount'), 2) }}
+                                            </span>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td>{{ $purchase->purchase_date->format('d M, Y') }}</td>
                                 <td>
@@ -158,6 +174,57 @@
         </div>
     </div>
 
+    {{-- Purchase Returns History --}}
+    @if(isset($returns) && $returns->count() > 0)
+    <div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+        <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-arrow-return-left me-2 text-warning"></i>Purchase Returns / Debit Notes</h6>
+            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning">{{ $returns->count() }} records</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-4 py-3">Return #</th>
+                            <th>Original PO Ref</th>
+                            <th>Return Date</th>
+                            <th class="text-center">Items Returned</th>
+                            <th>Reason</th>
+                            <th class="text-end">Total Amount</th>
+                            <th class="text-center pe-4">Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($returns as $ret)
+                            <tr>
+                                <td class="ps-4 font-monospace fw-bold text-dark">
+                                    <i class="bi bi-arrow-return-left text-warning me-1"></i>{{ $ret->return_no }}
+                                </td>
+                                <td>
+                                    <span class="font-monospace text-primary fw-semibold">{{ $ret->purchase->reference_no ?? '—' }}</span>
+                                </td>
+                                <td>{{ $ret->return_date->format('d M, Y') }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">{{ $ret->items->sum('quantity') }} pcs</span>
+                                </td>
+                                <td><small class="text-muted">{{ $ret->reason ?: '—' }}</small></td>
+                                <td class="text-end fw-bold text-danger">Rs. {{ number_format((float)$ret->total_amount, 2) }}</td>
+                                <td class="text-center pe-4">
+                                    <a href="{{ route('purchase-returns.receipt', $ret->id) }}"
+                                       class="btn btn-sm btn-outline-secondary" title="View / Print Debit Note" target="_blank">
+                                        <i class="bi bi-printer me-1"></i> Receipt
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Payment History --}}
     <div class="card border-0 shadow-sm" style="border-radius:14px;">
         <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
@@ -187,9 +254,15 @@
                                     <span class="font-monospace text-primary fw-semibold">{{ $payment->purchase->reference_no ?? '—' }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary text-capitalize px-2 py-1">
-                                        {{ str_replace('_', ' ', $payment->payment_method) }}
-                                    </span>
+                                    @if($payment->payment_method === 'return_credit')
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-1">
+                                            <i class="bi bi-arrow-return-left me-1"></i>Return Credit
+                                        </span>
+                                    @else
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary text-capitalize px-2 py-1">
+                                            {{ str_replace('_', ' ', $payment->payment_method) }}
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="small text-muted">{{ $payment->note ?: 'Supplier Payment' }}</td>
                                 <td class="text-end pe-4 fw-bold text-success fs-6">Rs. {{ number_format((float)$payment->amount, 2) }}</td>

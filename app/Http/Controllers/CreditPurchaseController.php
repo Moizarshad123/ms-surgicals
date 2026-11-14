@@ -6,6 +6,7 @@ use App\Models\Bank;
 use App\Models\BankTransaction;
 use App\Models\Purchase;
 use App\Models\PurchasePayment;
+use App\Models\PurchaseReturn;
 use App\Models\SupplierAdvance;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -129,11 +130,17 @@ class CreditPurchaseController extends Controller
     {
         $supplierName = urldecode($supplierName);
 
-        $purchases = Purchase::with(['items.product', 'payments.user'])
+        $purchases = Purchase::with(['items.product', 'payments.user', 'returns'])
             ->where('supplier_name', $supplierName)
             ->latest('purchase_date')
             ->get();
 
+        $returns = PurchaseReturn::with(['purchase', 'items.product', 'user'])
+            ->where('supplier_name', $supplierName)
+            ->latest('return_date')
+            ->get();
+
+        $totalReturns = (float) $returns->sum('total_amount');
         $totalBilled  = (float) $purchases->sum('total');
         $balanceDue   = (float) $purchases->sum(fn($p) => $p->due_amount);
         $totalPaid    = max(0, round($totalBilled - $balanceDue, 2));
@@ -155,7 +162,7 @@ class CreditPurchaseController extends Controller
         $banks           = Bank::where('status', 'active')->orderBy('name')->get();
 
         return view('credit_purchases.supplier_detail', compact(
-            'supplierName', 'purchases', 'allPayments',
+            'supplierName', 'purchases', 'returns', 'totalReturns', 'allPayments',
             'totalBilled', 'totalPaid', 'balanceDue', 'advanceBalance',
             'totalInvoices', 'paidInvoices', 'pendingInvoices', 'banks'
         ));

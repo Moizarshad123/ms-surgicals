@@ -707,12 +707,15 @@ class ReportController extends Controller
         // Sum of all sales before period start minus all payments/returns before period start
         $salesBeforePeriod = (float) Sale::where('customer_id', $customer->id)
             ->where('created_at', '<', $start)
-            ->sum('total');
+            ->get()
+            ->sum(function ($s) {
+                return (float) ($s->sub_total > 0 ? ($s->sub_total - $s->discount) : $s->total);
+            });
 
         $paymentsBeforePeriod = (float) SalePayment::whereHas('sale', function ($q) use ($customer) {
                 $q->where('customer_id', $customer->id);
             })
-            ->where('payment_method', '!=', 'advance_adjustment')
+            ->whereNotIn('payment_method', ['advance_adjustment', 'return_credit'])
             ->where('payment_date', '<', $start->toDateString())
             ->sum('amount');
 
@@ -732,11 +735,12 @@ class ReportController extends Controller
             ->get();
 
         foreach ($sales as $sale) {
+            $grossSale = (float) ($sale->sub_total > 0 ? ($sale->sub_total - $sale->discount) : $sale->total);
             $transactions->push([
                 'date'       => $sale->created_at,
                 'type'       => 'INVOICE',
                 'doc_no'     => $sale->invoice_no,
-                'debit'      => (float) $sale->total,  // increases customer owes
+                'debit'      => $grossSale,  // increases customer owes
                 'credit'     => 0,
                 'sort_key'   => $sale->created_at->format('Y-m-d H:i:s') . '_0_' . $sale->id,
             ]);
@@ -746,7 +750,7 @@ class ReportController extends Controller
         $payments = SalePayment::whereHas('sale', function ($q) use ($customer) {
                 $q->where('customer_id', $customer->id);
             })
-            ->where('payment_method', '!=', 'advance_adjustment')
+            ->whereNotIn('payment_method', ['advance_adjustment', 'return_credit'])
             ->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()])
             ->orderBy('payment_date', 'asc')
             ->get();
@@ -856,11 +860,15 @@ class ReportController extends Controller
         // === OPENING BALANCE ===
         $purchasesBeforePeriod = (float) Purchase::where('supplier_name', $supplierName)
             ->where('purchase_date', '<', $start->toDateString())
-            ->sum('total');
+            ->get()
+            ->sum(function ($p) {
+                return (float) ($p->sub_total > 0 ? ($p->sub_total - $p->discount) : $p->total);
+            });
 
         $paymentsBeforePeriod = (float) PurchasePayment::whereHas('purchase', function ($q) use ($supplierName) {
                 $q->where('supplier_name', $supplierName);
             })
+            ->whereNotIn('payment_method', ['advance_adjustment', 'return_credit'])
             ->where('payment_date', '<', $start->toDateString())
             ->sum('amount');
 
@@ -880,11 +888,12 @@ class ReportController extends Controller
             ->get();
 
         foreach ($purchases as $purchase) {
+            $grossBilled = (float) ($purchase->sub_total > 0 ? ($purchase->sub_total - $purchase->discount) : $purchase->total);
             $transactions->push([
                 'date'       => $purchase->purchase_date,
                 'type'       => 'INVOICE',
                 'doc_no'     => $purchase->reference_no,
-                'debit'      => (float) $purchase->total,  // increases amount owed to supplier
+                'debit'      => $grossBilled,  // increases amount owed to supplier
                 'credit'     => 0,
                 'sort_key'   => $purchase->purchase_date->format('Y-m-d') . '_0_' . $purchase->id,
             ]);
@@ -894,6 +903,7 @@ class ReportController extends Controller
         $payments = PurchasePayment::whereHas('purchase', function ($q) use ($supplierName) {
                 $q->where('supplier_name', $supplierName);
             })
+            ->whereNotIn('payment_method', ['advance_adjustment', 'return_credit'])
             ->whereBetween('payment_date', [$start->toDateString(), $end->toDateString()])
             ->orderBy('payment_date', 'asc')
             ->get();
